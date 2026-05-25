@@ -16,10 +16,21 @@
       "min_severity": "medium"
     }
   ],
+  "expected_lenses": [
+    {
+      "id": "economy",
+      "min_pressure": 0.67
+    },
+    {
+      "id": "domain-fit",
+      "min_pressure": 0.67
+    }
+  ],
   "reference": {
     "path": "after_good",
     "tests": "tests",
     "max_high_findings": 0,
-    "max_medium_findings": 0
+    "max_medium_findings": 0,
+    "max_lens_pressure": 0.2
   }
 }

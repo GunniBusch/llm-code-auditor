@@ -28,10 +28,12 @@ python3 scripts/quality_lens.py benchmarks/cases/pass-through-service-stack/befo
 ```
 
 The benchmark gates still use concrete scanner thresholds so regressions are deterministic. The lens is the agent-facing view used to choose a refactor strategy from those signals.
+Each case can also declare expected lens pressure for bad code and maximum lens pressure for the reference refactor. That keeps the higher-level quality view tuneable instead of treating it as a cosmetic report.
 
 ## Scoring Dimensions
 
 - Expected smell coverage: the scanner catches known high-value problems in bad code.
+- Expected lens pressure: the quality lens maps bad code to the intended abstract pressure, such as economy, failure semantics, or change shape.
 - Behavior preservation: reference and candidate code pass hidden/varied tests, not just prompt examples.
 - Maintainability gate: reference and candidate code avoid high/medium scanner findings according to case thresholds.
 - Tuneability: failures are reported per case so skill text, lens weights, and scanner heuristics can be adjusted without changing the benchmark goal.

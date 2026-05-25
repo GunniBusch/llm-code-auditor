@@ -13,7 +13,8 @@ The goal is not to abolish abstraction or compress code at any cost. The goal is
 
 1. Inspect the changed files and surrounding call sites before editing.
 2. State the behavior and invariants that must remain true. If you cannot say what the code is for, do not judge its shape yet.
-3. Run the quality lens when there is a local tree or file set and you need direction:
+3. When idioms, performance expectations, security posture, or framework patterns matter, look up current best practices for the specific language, framework, field, subtopic, and pattern. Prefer primary sources: official docs, language references, framework guides, standards, release notes, and well-established project docs. Use those sources to calibrate judgment; do not copy generic advice or impose patterns that do not fit the local code.
+4. Run the quality lens when there is a local tree or file set and you need direction:
 
 ```bash
 python3 scripts/quality_lens.py <path>
@@ -21,7 +22,7 @@ python3 scripts/quality_lens.py <path>
 
 The lens gives a fault-tolerant code-quality view across domain fit, economy, invariant ownership, failure semantics, change shape, and proof readiness. Use its primary frame to decide how to inspect the code. It is a model for thinking, not an edit checklist.
 
-4. Run the heuristic scanner when you need concrete leads beneath the lens:
+5. Run the heuristic scanner when you need concrete leads beneath the lens:
 
 ```bash
 python3 scripts/llm_code_smell_scan.py <path>
@@ -29,14 +30,14 @@ python3 scripts/llm_code_smell_scan.py <path>
 
 The scanner prints severity, confidence, and evidence. Treat `HIGH` as an actionable lead, `MEDIUM` as likely worth inspection, and `LOW` as a weak review signal that may be legitimate human code. Use `--min-severity medium` to hide weak leads.
 
-5. Read the reference that matches the work:
+6. Read the reference that matches the work:
    - `references/senior-refactor-playbook.md` for deep cleanup, adaptive reuse, and "make it human-quality" requests.
    - `references/pattern-catalog.md` for generated-code smell families and fixes.
    - `references/llm-failure-taxonomy.md` for correctness risks that clean-looking generated code often hides.
    - `references/human-code-quality.md` for code-review standards and stopping criteria.
-6. Fix only issues that are behavior-preserving or covered by tests. Add or adapt tests before non-trivial rewrites.
-7. Prefer deleting, inlining, renaming, moving code near its use, and strengthening boundary invariants over adding new frameworks.
-8. Verify with the repo's formatter, type checker, linter, and tests.
+7. Fix only issues that are behavior-preserving or covered by tests. Add or adapt tests before non-trivial rewrites.
+8. Prefer deleting, inlining, renaming, moving code near its use, and strengthening boundary invariants over adding new frameworks.
+9. Verify with the repo's formatter, type checker, linter, and tests.
 
 When tuning this skill, lens, or scanner behavior, run `scripts/quality_benchmark.py benchmarks`. To compare agent outputs, place candidate refactors in one directory per benchmark case and run `scripts/quality_benchmark.py benchmarks --candidate-root <path>`.
 
@@ -78,6 +79,8 @@ Use the narrower skill when the task matches a specific smell family:
 Identify the domain operation, public API boundaries, persistence/network boundaries, and test surface. Do not remove an abstraction until you know whether it encodes a real boundary: external dependency, polymorphism with multiple real implementations, security boundary, transaction boundary, lifecycle boundary, or shared domain vocabulary.
 
 Search for nearby code that already solves a related problem. Generated code often duplicates an existing shape with different names; high-quality cleanup adapts the existing concept instead of creating a second mini-framework.
+
+Check current external guidance when local context is not enough. For example, a Python parser, React component, Rust async path, SQL query builder, LSP server, cryptography helper, or payment workflow may have language- and domain-specific best practices that change what "simple" or "robust" means. Use external guidance as calibration, then reconcile it with the repo's own style and constraints.
 
 ### 2. Search for high-confidence generated-code patterns
 
@@ -141,6 +144,7 @@ Use this loop for substantial cleanup:
 
 - Do not "simplify" public APIs, database schemas, migrations, serialized formats, or plugin interfaces without checking compatibility.
 - Do not rename external protocol, schema, framework, or API vocabulary just because it contains words like `Provider`, `Handler`, `Service`, `data`, or `payload`; those names may be contractual.
+- Do not rely on stale memory for language, framework, security, performance, accessibility, or protocol guidance when current docs or primary sources can settle the question.
 - Do not assume nonzero smoke-test exit means startup failure when the command expects an interactive protocol session; inspect stderr/stdout for the specific failure being tested.
 - Do not inline test seams, dependency injection for external services, security boundaries, or concurrency boundaries just because there is one implementation.
 - Do not replace domain code with clever abstractions. High-quality code is often boring, direct, and locally obvious.

@@ -8,10 +8,21 @@
       "min_severity": "medium"
     }
   ],
+  "expected_lenses": [
+    {
+      "id": "change-shape",
+      "min_pressure": 0.34
+    },
+    {
+      "id": "invariant-ownership",
+      "min_pressure": 0.25
+    }
+  ],
   "reference": {
     "path": "after_good",
     "tests": "tests",
     "max_high_findings": 0,
-    "max_medium_findings": 0
+    "max_medium_findings": 0,
+    "max_lens_pressure": 0.2
   }
 }

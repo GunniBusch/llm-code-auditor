@@ -26,7 +26,9 @@ def test_reference_benchmark_suite_passes() -> None:
     )
 
     assert "Benchmark cases: 4" in result.stdout
+    assert "Score: 12/12" in result.stdout
     assert "Expected smell coverage: PASS" in result.stdout
+    assert "Expected lens pressure: PASS" in result.stdout
     assert "Reference implementations: PASS" in result.stdout
     assert not list(BENCHMARKS.rglob("__pycache__"))
 

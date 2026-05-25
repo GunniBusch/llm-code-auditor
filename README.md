@@ -36,6 +36,8 @@ python3 skills/llm-code-auditor/scripts/quality_lens.py --json <path>
 
 The lens summarizes pressure across domain fit, economy, invariant ownership, failure semantics, change shape, and proof readiness. It consumes scanner evidence, Python structure, and optional project configuration, then gives the agent a refactor frame instead of treating every exact match as a mandatory edit.
 
+The skill explicitly allows source-backed research. When quality depends on a language, framework, field, subtopic, or pattern, the agent should consult current primary sources such as official docs, language references, standards, and well-established project guidance before deciding what good code looks like.
+
 ## Scanner
 
 ```bash

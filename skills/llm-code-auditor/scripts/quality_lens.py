@@ -28,6 +28,7 @@ class Lens:
     name: str
     question: str
     preferred_move: str
+    avoid: str
 
 
 @dataclass(frozen=True)
@@ -45,31 +46,37 @@ LENSES = {
         "Domain fit",
         "Does the code speak in the repo's product, protocol, and data vocabulary?",
         "Rename or move code toward the domain concept it actually owns.",
+        "Do not rename framework, protocol, schema, or public API vocabulary without proof it is local.",
     ),
     "economy": Lens(
         "Economy",
         "Does every layer, helper, option, and type earn its current place?",
         "Inline, delete, or collapse machinery that has no present boundary.",
+        "Do not delete a boundary just because it has one implementation; first identify what invariant it protects.",
     ),
     "invariant-ownership": Lens(
         "Invariant ownership",
         "Is each validation, normalization, and state rule owned once at the right boundary?",
         "Move checks to the trust boundary or model that can make invalid states hard to express.",
+        "Do not scatter the same guard across helpers after a boundary has already proven it.",
     ),
     "failure-semantics": Lens(
         "Failure semantics",
         "Are errors explicit enough that callers can recover or fail honestly?",
         "Replace silent fallbacks and decorative catches with defined failure behavior.",
+        "Do not return empty defaults for unexpected failures unless that is the documented contract.",
     ),
     "change-shape": Lens(
         "Change shape",
         "Will the next feature add one local change or another branch/layer across the system?",
         "Convert branch accretion into a table, parser, state model, or a few real domain paths.",
+        "Do not add another flag or branch before naming the domain distinction it represents.",
     ),
     "proof-readiness": Lens(
         "Proof readiness",
         "Can behavior be verified from tests, types, boundaries, or a precise manual trace?",
         "Add or repair behavior-level proof before deeper rewrites.",
+        "Do not trust green visible tests when they only mirror private structure or prompt examples.",
     ),
 }
 
@@ -141,6 +148,7 @@ def build_quality_model(paths: list[Path], config_path: Path | None = None) -> d
         "metrics": summarize_metrics(functions),
         "overall_pressure": pressure_label(sum(lens_scores.values()) / max(len(LENSES), 1)),
         "primary_frame": primary_frame(ranked_lenses),
+        "agent_protocol": agent_protocol(ranked_lenses),
         "lenses": ranked_lenses,
         "evidence": [finding_model(finding) for finding in top_findings(findings)],
     }
@@ -301,6 +309,7 @@ def ranked_lens_models(
             "label": pressure_label(score),
             "question": LENSES[lens_id].question,
             "preferred_move": LENSES[lens_id].preferred_move,
+            "avoid": LENSES[lens_id].avoid,
             "dominant_signals": [
                 code for code, _count in code_counts_by_lens[lens_id].most_common(4)
             ],
@@ -366,6 +375,23 @@ def primary_frame(ranked_lenses: list[dict[str, Any]]) -> str:
     )
 
 
+def agent_protocol(ranked_lenses: list[dict[str, Any]]) -> dict[str, Any]:
+    active = [lens for lens in ranked_lenses if lens["pressure"] > 0][:3]
+    if not active:
+        return {
+            "mode": "intent-first",
+            "inspect": ["Map behavior, boundaries, and tests before changing style."],
+            "move": ["Leave code alone when no quality pressure is supported by evidence."],
+            "avoid": ["Do not invent cleanup work from taste alone."],
+        }
+    return {
+        "mode": "lens-first",
+        "inspect": [lens["question"] for lens in active],
+        "move": [lens["preferred_move"] for lens in active],
+        "avoid": [lens["avoid"] for lens in active],
+    }
+
+
 def top_findings(findings: list[smell.Finding]) -> list[smell.Finding]:
     return findings[:12]
 
@@ -389,6 +415,8 @@ def print_text_model(model: dict[str, Any], evidence_limit: int) -> None:
         f"overall pressure {model['overall_pressure']}."
     )
     print(f"Primary frame: {model['primary_frame']}")
+    protocol = model["agent_protocol"]
+    print(f"Agent mode: {protocol['mode']}")
     print("\nLens pressure:")
     for lens in model["lenses"]:
         if lens["pressure"] == 0:
@@ -398,6 +426,14 @@ def print_text_model(model: dict[str, Any], evidence_limit: int) -> None:
             f"- {lens['name']}: {lens['label']} ({lens['pressure']:.2f}) | "
             f"{lens['question']} Move: {lens['preferred_move']} Signals: {signals}."
         )
+
+    print("\nAgent protocol:")
+    for question in protocol["inspect"]:
+        print(f"- Inspect: {question}")
+    for move in protocol["move"]:
+        print(f"- Move: {move}")
+    for avoid in protocol["avoid"]:
+        print(f"- Avoid: {avoid}")
 
     metrics = model["metrics"]
     if metrics["long_functions"] or metrics["branch_heavy_functions"]:

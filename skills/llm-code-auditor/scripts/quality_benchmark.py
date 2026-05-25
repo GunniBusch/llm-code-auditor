@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER = Path(__file__).with_name("llm_code_smell_scan.py")
+QUALITY_LENS = Path(__file__).with_name("quality_lens.py")
 FINDING_RE = re.compile(r":\d+: (?P<severity>[A-Z]+) [0-9.]+ (?P<code>[a-z0-9-]+):")
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
@@ -28,6 +29,7 @@ class ScanFinding:
 class CaseResult:
     name: str
     expected_findings_ok: bool
+    expected_lenses_ok: bool
     reference_ok: bool
     candidate_ok: bool | None
     score: int
@@ -57,7 +59,10 @@ def main() -> int:
 
     if not results:
         return 1
-    if not all(result.expected_findings_ok and result.reference_ok for result in results):
+    if not all(
+        result.expected_findings_ok and result.expected_lenses_ok and result.reference_ok
+        for result in results
+    ):
         return 1
     candidate_results = [result.candidate_ok for result in results if result.candidate_ok is not None]
     if candidate_results and not all(candidate_results):
@@ -72,6 +77,11 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
 
     before_findings = run_scanner(case_dir / case["before"], "low")
     expected_findings_ok = expected_findings_present(case["expected_findings"], before_findings, notes)
+    expected_lenses_ok = expected_lenses_present(
+        case.get("expected_lenses", []),
+        run_quality_lens(case_dir / case["before"]),
+        notes,
+    )
 
     reference = case["reference"]
     reference_dir = case_dir / reference["path"]
@@ -86,8 +96,8 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
             notes.append(f"candidate missing: {candidate_dir}")
             candidate_ok = False
 
-    score = int(expected_findings_ok) + int(reference_ok)
-    max_score = 2
+    score = int(expected_findings_ok) + int(expected_lenses_ok) + int(reference_ok)
+    max_score = 3
     if candidate_ok is not None:
         score += int(candidate_ok)
         max_score += 1
@@ -95,6 +105,7 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
     return CaseResult(
         name=case["id"],
         expected_findings_ok=expected_findings_ok,
+        expected_lenses_ok=expected_lenses_ok,
         reference_ok=reference_ok,
         candidate_ok=candidate_ok,
         score=score,
@@ -117,6 +128,20 @@ def run_scanner(path: Path, min_severity: str) -> list[ScanFinding]:
     ]
 
 
+def run_quality_lens(path: Path) -> dict[str, object]:
+    result = subprocess.run(
+        ["python3", str(QUALITY_LENS), "--json", str(path)],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    model = json.loads(result.stdout)
+    if not isinstance(model, dict):
+        raise SystemExit("quality lens output must be an object")
+    return model
+
+
 def expected_findings_present(
     expected: list[dict[str, str]],
     findings: list[ScanFinding],
@@ -137,6 +162,27 @@ def expected_findings_present(
     return ok
 
 
+def expected_lenses_present(
+    expected: list[dict[str, object]],
+    model: dict[str, object],
+    notes: list[str],
+) -> bool:
+    if not expected:
+        return True
+    lenses = lens_pressure(model)
+    ok = True
+    for expectation in expected:
+        lens_id = expectation["id"]
+        min_pressure = float(expectation["min_pressure"])
+        pressure = lenses.get(str(lens_id), 0.0)
+        if pressure < min_pressure:
+            notes.append(
+                f"lens pressure too low: {lens_id} {pressure:.2f} < {min_pressure:.2f}"
+            )
+            ok = False
+    return ok
+
+
 def quality_gate(
     source_dir: Path,
     tests_dir: Path,
@@ -148,6 +194,7 @@ def quality_gate(
     max_medium = int(thresholds.get("max_medium_findings", 0))
     high_findings = run_scanner(source_dir, "high")
     medium_findings = run_scanner(source_dir, "medium")
+    lens_model = run_quality_lens(source_dir)
     tests_ok = run_behavior_tests(source_dir, tests_dir)
 
     ok = True
@@ -157,10 +204,34 @@ def quality_gate(
     if len(medium_findings) > max_medium:
         notes.append(f"{label} medium findings: {len(medium_findings)} > {max_medium}")
         ok = False
+    max_lens_pressure = thresholds.get("max_lens_pressure")
+    if max_lens_pressure is not None:
+        highest_lens_pressure = max(lens_pressure(lens_model).values(), default=0.0)
+        allowed = float(max_lens_pressure)
+        if highest_lens_pressure > allowed:
+            notes.append(
+                f"{label} lens pressure: {highest_lens_pressure:.2f} > {allowed:.2f}"
+            )
+            ok = False
     if not tests_ok:
         notes.append(f"{label} behavior tests failed")
         ok = False
     return ok
+
+
+def lens_pressure(model: dict[str, object]) -> dict[str, float]:
+    raw_lenses = model.get("lenses", [])
+    if not isinstance(raw_lenses, list):
+        return {}
+    pressures: dict[str, float] = {}
+    for raw_lens in raw_lenses:
+        if not isinstance(raw_lens, dict):
+            continue
+        lens_id = raw_lens.get("id")
+        pressure = raw_lens.get("pressure")
+        if isinstance(lens_id, str) and isinstance(pressure, (int, float)):
+            pressures[lens_id] = float(pressure)
+    return pressures
 
 
 def run_behavior_tests(source_dir: Path, tests_dir: Path) -> bool:
@@ -188,8 +259,10 @@ def print_summary(results: list[CaseResult]) -> None:
     max_score = sum(result.max_score for result in results)
     print(f"Score: {score}/{max_score}")
     smell_ok = all(result.expected_findings_ok for result in results)
+    lens_ok = all(result.expected_lenses_ok for result in results)
     reference_ok = all(result.reference_ok for result in results)
     print(f"Expected smell coverage: {'PASS' if smell_ok else 'FAIL'}")
+    print(f"Expected lens pressure: {'PASS' if lens_ok else 'FAIL'}")
     print(f"Reference implementations: {'PASS' if reference_ok else 'FAIL'}")
 
     candidate_results = [result for result in results if result.candidate_ok is not None]
@@ -198,7 +271,11 @@ def print_summary(results: list[CaseResult]) -> None:
         print(f"Candidate implementations: {'PASS' if candidate_ok else 'FAIL'}")
 
     for result in results:
-        status = "PASS" if result.expected_findings_ok and result.reference_ok else "FAIL"
+        status = (
+            "PASS"
+            if result.expected_findings_ok and result.expected_lenses_ok and result.reference_ok
+            else "FAIL"
+        )
         print(f"- {result.name}: {status} ({result.score}/{result.max_score})")
         for note in result.notes:
             print(f"  {note}")
@@ -208,6 +285,7 @@ def result_to_json(result: CaseResult) -> dict[str, object]:
     return {
         "name": result.name,
         "expected_findings_ok": result.expected_findings_ok,
+        "expected_lenses_ok": result.expected_lenses_ok,
         "reference_ok": result.reference_ok,
         "candidate_ok": result.candidate_ok,
         "score": result.score,

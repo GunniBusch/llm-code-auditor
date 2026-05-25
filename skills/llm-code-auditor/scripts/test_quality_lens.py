@@ -66,6 +66,8 @@ def load_config(path):
         assert "Failure semantics" in output
         assert "Change shape" in output
         assert "Primary frame:" in output
+        assert "Agent mode: lens-first" in output
+        assert "Agent protocol:" in output
         assert "silent-fallback" in output
 
 
@@ -98,6 +100,8 @@ class BillingThingy:
         lenses = {lens["id"]: lens for lens in model["lenses"]}
         assert lenses["domain-fit"]["pressure"] > 0
         assert lenses["economy"]["pressure"] == 0
+        assert model["agent_protocol"]["mode"] == "lens-first"
+        assert model["agent_protocol"]["inspect"]
 
 
 if __name__ == "__main__":

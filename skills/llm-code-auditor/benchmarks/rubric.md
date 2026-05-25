@@ -20,6 +20,7 @@ Score each candidate from 0 to 2:
 - Locality: keeps data, invariant, and behavior close enough to inspect.
 - Abstraction judgment: removes unearned layers while preserving real boundaries.
 - Adaptive reuse: uses existing repo concepts instead of inventing parallel helpers.
+- Source-backed idiom fit: uses current language, framework, field, and pattern guidance when local context is not enough.
 - Test value: tests assert behavior, not private generated structure.
 - Performance shape: chooses a better data structure or algorithm before adding machinery.
 
@@ -35,5 +36,6 @@ Suggested interpretation:
 2. Change one prompt/skill/scanner rule at a time.
 3. Generate candidate refactors for the cases into a candidate root.
 4. Run `quality_benchmark.py benchmarks --candidate-root <candidate-root>`.
-5. Manually review candidates with this rubric.
-6. Promote prompt changes only when automated scores and manual review both improve or stay stable.
+5. For candidates involving framework, protocol, security, performance, or domain-specific idioms, check current primary sources before scoring style or architecture.
+6. Manually review candidates with this rubric.
+7. Promote prompt changes only when automated scores and manual review both improve or stay stable.
