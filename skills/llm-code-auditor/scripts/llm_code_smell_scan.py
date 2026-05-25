@@ -149,6 +149,7 @@ class Finding:
 
 @dataclass(frozen=True)
 class ScannerConfig:
+    roots: tuple[Path, ...]
     skip_dirs: frozenset[str]
     ignore_patterns: tuple[str, ...]
     utility_module_names: frozenset[str]
@@ -260,6 +261,7 @@ def load_config(paths: list[Path], config_path: Path | None) -> ScannerConfig:
         else r"a\A"
     )
     return ScannerConfig(
+        roots=tuple(sorted(roots, key=lambda root: len(root.parts), reverse=True)),
         skip_dirs=frozenset(skip_dirs),
         ignore_patterns=ignore_patterns,
         utility_module_names=frozenset(utility_module_names),
@@ -368,7 +370,7 @@ def scan_path_findings(path: Path, config: ScannerConfig) -> list[Finding]:
             )
         )
 
-    if len(display_parts(path)) >= 8:
+    if len(scanned_path_parts(path, config.roots)) >= 8:
         findings.append(
             Finding(
                 path,
@@ -844,6 +846,15 @@ def display_parts(path: Path) -> tuple[str, ...]:
         return path.relative_to(Path.cwd()).parts
     except ValueError:
         return path.parts
+
+
+def scanned_path_parts(path: Path, roots: tuple[Path, ...]) -> tuple[str, ...]:
+    for root in roots:
+        try:
+            return path.relative_to(root).parts
+        except ValueError:
+            continue
+    return display_parts(path)
 
 
 def scan_file_shape(files: list[Path]) -> list[Finding]:
