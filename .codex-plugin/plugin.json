@@ -1,6 +1,6 @@
 {
   "name": "llm-code-auditor",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "Refactor AI-shaped code into compact, readable, efficient, task-fit code with senior maintainer judgment.",
   "author": {
     "name": "Leon Adomaitis",
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "LLM Code Auditor",
     "shortDescription": "Refactor AI-shaped code well",
-    "longDescription": "Audit and improve generated or agent-written code with an umbrella senior-refactor workflow plus targeted skills for abstraction judgment, boundary invariants, readable domain code, generated tests, dependency/API hallucinations, and performance simplicity. The plugin focuses on code that is compact enough, readable, efficient, locally idiomatic, testable, and fit for the actual task while preserving real boundaries instead of blindly deleting abstractions.",
+    "longDescription": "Audit and improve generated or agent-written code with an umbrella senior-refactor workflow, guide-backed code remodel markup, and targeted skills for abstraction judgment, boundary invariants, readable domain code, generated tests, dependency/API hallucinations, and performance simplicity. The plugin focuses on code that is compact enough, readable, efficient, locally idiomatic, testable, and fit for the actual task while preserving real boundaries instead of blindly deleting abstractions.",
     "developerName": "Leon Adomaitis",
     "category": "Coding",
     "capabilities": [

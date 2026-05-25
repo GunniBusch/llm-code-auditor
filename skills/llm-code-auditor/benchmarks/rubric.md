@@ -7,6 +7,8 @@ Use this rubric when tuning `SKILL.md`, targeted skill prompts, scanner heuristi
 The automated runner reports:
 
 - Expected smell coverage: bad fixture triggers the expected scanner findings.
+- Expected remodel friction: bad fixture triggers the intended structural model pressure.
+- Expected lens pressure: bad fixture maps to the intended high-level quality frame.
 - Reference implementation gate: gold refactor passes behavior tests and scanner thresholds.
 - Candidate implementation gate: optional agent output passes the same tests and thresholds.
 

@@ -38,11 +38,32 @@
       "min_pressure": 0.34
     }
   ],
+  "expected_remodel_friction": [
+    {
+      "kind": "empty_boundaries",
+      "min_count": 2
+    },
+    {
+      "kind": "silent_boundaries",
+      "min_count": 1
+    },
+    {
+      "kind": "branch_hubs",
+      "min_count": 1
+    }
+  ],
   "reference": {
     "path": "after_good",
     "tests": "tests",
     "max_high_findings": 0,
     "max_medium_findings": 0,
-    "max_lens_pressure": 0.2
+    "max_lens_pressure": 0.2,
+    "max_remodel_friction": {
+      "branch_hubs": 0,
+      "empty_boundaries": 0,
+      "generic_boundaries": 0,
+      "repeated_names": 0,
+      "silent_boundaries": 0
+    }
   }
 }

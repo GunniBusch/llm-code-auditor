@@ -34,7 +34,7 @@ Use this when a cleanup task asks for code that is readable, efficient, direct, 
 
 ## Patterns To Prefer
 
-- Direct function over single-use class.
+- Direct function over a class that owns no boundary, state, phase, or invariant.
 - Concrete type over interface until there are two real implementations or a true boundary.
 - Plain data plus validation at construction over optional fields checked everywhere.
 - Existing framework lifecycle over custom orchestration.
@@ -43,6 +43,10 @@ Use this when a cleanup task asks for code that is readable, efficient, direct, 
 - Domain-specific duplicate code over premature generic abstraction when the cases are likely to diverge.
 - Typed results or explicit errors over silent empty fallbacks.
 - Existing repo APIs over plausible new dependencies or guessed helper names.
+
+One use is not a defect by itself. Keep a one-use helper, class, or service when
+it names a meaningful phase, protects a trust boundary, or makes a dense
+operation easier to verify.
 
 ## Review Questions
 

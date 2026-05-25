@@ -233,6 +233,22 @@ class BillingThingy:
         assert "naming-inflation" in output
 
 
+def test_no_arg_javascript_pass_through_does_not_crash() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "loader.ts").write_text(
+            """
+function buildConfig() {
+  return loadConfig()
+}
+""",
+            encoding="utf-8",
+        )
+
+        output = run_scan(root, "--min-severity", "high")
+        assert "Scanned 1 files" in output
+
+
 def main() -> int:
     tests = [
         test_lsp_capability_names_are_not_naming_inflation,
@@ -245,6 +261,7 @@ def main() -> int:
         test_gitignore_excludes_generated_python_files,
         test_project_config_can_add_contractual_names,
         test_project_config_can_override_generic_suffixes,
+        test_no_arg_javascript_pass_through_does_not_crash,
     ]
     for test in tests:
         test()

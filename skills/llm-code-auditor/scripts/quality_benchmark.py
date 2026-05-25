@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCANNER = Path(__file__).with_name("llm_code_smell_scan.py")
+REMODEL = Path(__file__).with_name("code_remodel.py")
 QUALITY_LENS = Path(__file__).with_name("quality_lens.py")
 FINDING_RE = re.compile(r":\d+: (?P<severity>[A-Z]+) [0-9.]+ (?P<code>[a-z0-9-]+):")
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
@@ -29,6 +30,7 @@ class ScanFinding:
 class CaseResult:
     name: str
     expected_findings_ok: bool
+    expected_remodel_ok: bool
     expected_lenses_ok: bool
     reference_ok: bool
     candidate_ok: bool | None
@@ -60,7 +62,10 @@ def main() -> int:
     if not results:
         return 1
     if not all(
-        result.expected_findings_ok and result.expected_lenses_ok and result.reference_ok
+        result.expected_findings_ok
+        and result.expected_remodel_ok
+        and result.expected_lenses_ok
+        and result.reference_ok
         for result in results
     ):
         return 1
@@ -76,7 +81,13 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
     notes: list[str] = []
 
     before_findings = run_scanner(case_dir / case["before"], "low")
+    before_remodel = run_remodel(case_dir / case["before"])
     expected_findings_ok = expected_findings_present(case["expected_findings"], before_findings, notes)
+    expected_remodel_ok = expected_remodel_present(
+        case.get("expected_remodel_friction", []),
+        before_remodel,
+        notes,
+    )
     expected_lenses_ok = expected_lenses_present(
         case.get("expected_lenses", []),
         run_quality_lens(case_dir / case["before"]),
@@ -96,8 +107,13 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
             notes.append(f"candidate missing: {candidate_dir}")
             candidate_ok = False
 
-    score = int(expected_findings_ok) + int(expected_lenses_ok) + int(reference_ok)
-    max_score = 3
+    score = (
+        int(expected_findings_ok)
+        + int(expected_remodel_ok)
+        + int(expected_lenses_ok)
+        + int(reference_ok)
+    )
+    max_score = 4
     if candidate_ok is not None:
         score += int(candidate_ok)
         max_score += 1
@@ -105,6 +121,7 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
     return CaseResult(
         name=case["id"],
         expected_findings_ok=expected_findings_ok,
+        expected_remodel_ok=expected_remodel_ok,
         expected_lenses_ok=expected_lenses_ok,
         reference_ok=reference_ok,
         candidate_ok=candidate_ok,
@@ -126,6 +143,20 @@ def run_scanner(path: Path, min_severity: str) -> list[ScanFinding]:
         ScanFinding(match.group("code"), match.group("severity").lower())
         for match in FINDING_RE.finditer(result.stdout)
     ]
+
+
+def run_remodel(path: Path) -> dict[str, object]:
+    result = subprocess.run(
+        ["python3", str(REMODEL), "--json", str(path)],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    model = json.loads(result.stdout)
+    if not isinstance(model, dict):
+        raise SystemExit("code remodel output must be an object")
+    return model
 
 
 def run_quality_lens(path: Path) -> dict[str, object]:
@@ -162,6 +193,25 @@ def expected_findings_present(
     return ok
 
 
+def expected_remodel_present(
+    expected: list[dict[str, object]],
+    model: dict[str, object],
+    notes: list[str],
+) -> bool:
+    if not expected:
+        return True
+    friction = friction_counts(model)
+    ok = True
+    for expectation in expected:
+        kind = str(expectation["kind"])
+        min_count = int(expectation.get("min_count", 1))
+        count = friction.get(kind, 0)
+        if count < min_count:
+            notes.append(f"remodel friction too low: {kind} {count} < {min_count}")
+            ok = False
+    return ok
+
+
 def expected_lenses_present(
     expected: list[dict[str, object]],
     model: dict[str, object],
@@ -194,6 +244,7 @@ def quality_gate(
     max_medium = int(thresholds.get("max_medium_findings", 0))
     high_findings = run_scanner(source_dir, "high")
     medium_findings = run_scanner(source_dir, "medium")
+    remodel_model = run_remodel(source_dir)
     lens_model = run_quality_lens(source_dir)
     tests_ok = run_behavior_tests(source_dir, tests_dir)
 
@@ -213,6 +264,17 @@ def quality_gate(
                 f"{label} lens pressure: {highest_lens_pressure:.2f} > {allowed:.2f}"
             )
             ok = False
+    max_remodel_friction = thresholds.get("max_remodel_friction")
+    if max_remodel_friction is not None:
+        if not isinstance(max_remodel_friction, dict):
+            raise SystemExit("max_remodel_friction must be an object")
+        friction = friction_counts(remodel_model)
+        for kind, raw_limit in max_remodel_friction.items():
+            limit = int(raw_limit)
+            count = friction.get(str(kind), 0)
+            if count > limit:
+                notes.append(f"{label} remodel friction {kind}: {count} > {limit}")
+                ok = False
     if not tests_ok:
         notes.append(f"{label} behavior tests failed")
         ok = False
@@ -232,6 +294,17 @@ def lens_pressure(model: dict[str, object]) -> dict[str, float]:
         if isinstance(lens_id, str) and isinstance(pressure, (int, float)):
             pressures[lens_id] = float(pressure)
     return pressures
+
+
+def friction_counts(model: dict[str, object]) -> dict[str, int]:
+    raw_friction = model.get("friction", {})
+    if not isinstance(raw_friction, dict):
+        return {}
+    counts: dict[str, int] = {}
+    for kind, values in raw_friction.items():
+        if isinstance(kind, str) and isinstance(values, list):
+            counts[kind] = len(values)
+    return counts
 
 
 def run_behavior_tests(source_dir: Path, tests_dir: Path) -> bool:
@@ -259,9 +332,11 @@ def print_summary(results: list[CaseResult]) -> None:
     max_score = sum(result.max_score for result in results)
     print(f"Score: {score}/{max_score}")
     smell_ok = all(result.expected_findings_ok for result in results)
+    remodel_ok = all(result.expected_remodel_ok for result in results)
     lens_ok = all(result.expected_lenses_ok for result in results)
     reference_ok = all(result.reference_ok for result in results)
     print(f"Expected smell coverage: {'PASS' if smell_ok else 'FAIL'}")
+    print(f"Expected remodel friction: {'PASS' if remodel_ok else 'FAIL'}")
     print(f"Expected lens pressure: {'PASS' if lens_ok else 'FAIL'}")
     print(f"Reference implementations: {'PASS' if reference_ok else 'FAIL'}")
 
@@ -273,7 +348,10 @@ def print_summary(results: list[CaseResult]) -> None:
     for result in results:
         status = (
             "PASS"
-            if result.expected_findings_ok and result.expected_lenses_ok and result.reference_ok
+            if result.expected_findings_ok
+            and result.expected_remodel_ok
+            and result.expected_lenses_ok
+            and result.reference_ok
             else "FAIL"
         )
         print(f"- {result.name}: {status} ({result.score}/{result.max_score})")
@@ -285,6 +363,7 @@ def result_to_json(result: CaseResult) -> dict[str, object]:
     return {
         "name": result.name,
         "expected_findings_ok": result.expected_findings_ok,
+        "expected_remodel_ok": result.expected_remodel_ok,
         "expected_lenses_ok": result.expected_lenses_ok,
         "reference_ok": result.reference_ok,
         "candidate_ok": result.candidate_ok,

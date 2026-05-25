@@ -14,7 +14,15 @@ The goal is not to abolish abstraction or compress code at any cost. The goal is
 1. Inspect the changed files and surrounding call sites before editing.
 2. State the behavior and invariants that must remain true. If you cannot say what the code is for, do not judge its shape yet.
 3. When idioms, performance expectations, security posture, or framework patterns matter, look up current best practices for the specific language, framework, field, subtopic, and pattern. Prefer primary sources: official docs, language references, framework guides, standards, release notes, and well-established project docs. Use those sources to calibrate judgment; do not copy generic advice or impose patterns that do not fit the local code.
-4. Run the quality lens when there is a local tree or file set and you need direction:
+4. Remodel the written code when structure is unclear, duplicated, over-layered, squeezed into the wrong file, or hard to reason about. Prefer writing a short manual remodel after reading the code; use the script as a seed or sanity check:
+
+```bash
+python3 scripts/code_remodel.py <path>
+```
+
+The remodel is a post-code markup, not another source language and not a detector verdict. It redraws modules, symbols, ownership, calls, repeated concepts, unowned forwarders, branch hubs, implicit failure policy, wrong placement, guide-backed refactor moves, and additive drift so the agent can see the codebase shape before rewriting it. The act of authoring the remodel is part of the tool: it forces the agent to see responsibilities from another view instead of piling on more code. Read `references/code-remodel-markup.md` when using this output deeply.
+
+5. Run the quality lens when there is a local tree or file set and you need direction:
 
 ```bash
 python3 scripts/quality_lens.py <path>
@@ -22,7 +30,7 @@ python3 scripts/quality_lens.py <path>
 
 The lens gives a fault-tolerant code-quality view across domain fit, economy, invariant ownership, failure semantics, change shape, and proof readiness. Use its primary frame to decide how to inspect the code. It is a model for thinking, not an edit checklist.
 
-5. Run the heuristic scanner when you need concrete leads beneath the lens:
+6. Run the heuristic scanner when you need concrete leads beneath the model:
 
 ```bash
 python3 scripts/llm_code_smell_scan.py <path>
@@ -30,16 +38,18 @@ python3 scripts/llm_code_smell_scan.py <path>
 
 The scanner prints severity, confidence, and evidence. Treat `HIGH` as an actionable lead, `MEDIUM` as likely worth inspection, and `LOW` as a weak review signal that may be legitimate human code. Use `--min-severity medium` to hide weak leads.
 
-6. Read the reference that matches the work:
+7. Read the reference that matches the work:
+   - `references/code-remodel-markup.md` for the remodel language and how to use it before rewriting.
+   - `references/refactoring-guide-map.md` for mapping remodel pressure to Fowler/Refactoring Guru move families.
    - `references/senior-refactor-playbook.md` for deep cleanup, adaptive reuse, and "make it human-quality" requests.
    - `references/pattern-catalog.md` for generated-code smell families and fixes.
    - `references/llm-failure-taxonomy.md` for correctness risks that clean-looking generated code often hides.
    - `references/human-code-quality.md` for code-review standards and stopping criteria.
-7. Fix only issues that are behavior-preserving or covered by tests. Add or adapt tests before non-trivial rewrites.
-8. Prefer deleting, inlining, renaming, moving code near its use, and strengthening boundary invariants over adding new frameworks.
-9. Verify with the repo's formatter, type checker, linter, and tests.
+8. Fix only issues that are behavior-preserving or covered by tests. Add or adapt tests before non-trivial rewrites.
+9. Prefer deleting, inlining, renaming, moving code near its use, and strengthening boundary invariants over adding new frameworks.
+10. Verify with the repo's formatter, type checker, linter, and tests.
 
-When tuning this skill, lens, or scanner behavior, run `scripts/quality_benchmark.py benchmarks`. To compare agent outputs, place candidate refactors in one directory per benchmark case and run `scripts/quality_benchmark.py benchmarks --candidate-root <path>`.
+When tuning this skill, remodel, lens, or scanner behavior, run `scripts/quality_benchmark.py benchmarks`. To compare agent outputs, place candidate refactors in one directory per benchmark case and run `scripts/quality_benchmark.py benchmarks --candidate-root <path>`.
 
 ## Quality Contract
 
@@ -65,7 +75,7 @@ When an agent uses this skill and reports a scanner finding, calibrate it before
 
 Use the narrower skill when the task matches a specific smell family:
 
-- `abstraction-pruner`: one-off interfaces, pass-through layers, factories, strategies, event buses, managers.
+- `abstraction-pruner`: unowned interfaces, pass-through layers, redundant one-time methods, factories, strategies, event buses, managers.
 - `boundary-invariant-auditor`: redundant checks, missing boundary validation, too-strict validation, impossible states, guard clutter.
 - `domain-readability-refactor`: vague naming, utility dumping, narration comments, feature envy, poor locality.
 - `generated-test-auditor`: brittle LLM tests, duplicated test cases, over-mocking, implementation-detail assertions, weak assertions.
@@ -82,11 +92,13 @@ Search for nearby code that already solves a related problem. Generated code oft
 
 Check current external guidance when local context is not enough. For example, a Python parser, React component, Rust async path, SQL query builder, LSP server, cryptography helper, or payment workflow may have language- and domain-specific best practices that change what "simple" or "robust" means. Use external guidance as calibration, then reconcile it with the repo's own style and constraints.
 
+When the structure is the problem, remodel before rewriting. The remodel should make bad placement visible indirectly: too many `unowned-forwarder` / `empty-boundary` symbols, generic ownership, repeated operation names, branch hubs, or silent boundaries often show where the source code is fighting the domain shape.
+
 ### 2. Search for high-confidence generated-code patterns
 
 Prioritize patterns that have simple fixes and low behavioral risk:
 
-- Single-use abstraction: one interface, one implementation, one caller, wrapper forwarding unchanged arguments.
+- Unowned indirection: one interface, one implementation, one caller, or wrapper forwarding unchanged arguments without owning a phase, policy, invariant, protocol, or readability improvement.
 - Naming inflation: `Manager`, `Service`, `Processor`, `Handler`, `Provider`, `Factory`, `Controller`, `Engine` hiding trivial or mixed responsibilities.
 - Utility dumping: `utils`, `helpers`, `common`, `shared`, `base` accumulating unrelated behavior.
 - Comment narration: comments that restate the next line.
@@ -97,7 +109,7 @@ Prioritize patterns that have simple fixes and low behavioral risk:
 - Over-fragmentation: tiny one-class files and deep directories without a real module boundary.
 - Generic abstraction language: `entity`, `item`, `object`, `data`, `info`, `processData`, `handleRequest`, `executeTask`.
 - Silent broad fallbacks: `catch/except Exception` returning empty data, `None`, or a default that hides failure.
-- Structural erosion: one function absorbing every new requirement through more branches, flags, and special cases.
+- Structural erosion: one function, class, or file absorbing every new requirement through more branches, flags, wrappers, and special cases instead of reconnecting code to the right owner.
 
 ### 3. Add LLM-specific correctness checks
 
@@ -117,10 +129,11 @@ Look beyond style. LLM-generated code often looks clean while failing at context
 
 Apply these transformations:
 
-- Collapse abstractions until the code reflects actual domain boundaries.
-- Keep abstractions that encode real substitution, lifecycle, security, transactions, protocol contracts, or domain vocabulary.
+- Collapse abstractions only when they do not own a current responsibility.
+- Keep abstractions that encode real substitution, lifecycle, security, transactions, protocol contracts, named algorithm phases, trust boundaries, or domain vocabulary that makes call sites clearer.
 - Rename to domain nouns and verbs visible in product language, schema names, protocols, and user workflows.
 - Move behavior to the data or module that owns the invariant.
+- Reconnect additive code by moving, merging, or rewriting it so the next requirement changes one owner instead of another scattered branch or wrapper.
 - Replace repeated shape with a smaller data model, table-driven mapping, or one specialized path per real domain distinction.
 - Centralize validation at trust boundaries; use types and constructors to make invalid states unrepresentable. Remove the 10th repeated `if` when upstream invariants already prove it.
 - Prefer standard library and framework idioms already used in the repo.

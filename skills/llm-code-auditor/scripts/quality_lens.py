@@ -51,7 +51,7 @@ LENSES = {
     "economy": Lens(
         "Economy",
         "Does every layer, helper, option, and type earn its current place?",
-        "Inline, delete, or collapse machinery that has no present boundary.",
+        "Inline, delete, move, or collapse machinery that owns no current responsibility.",
         "Do not delete a boundary just because it has one implementation; first identify what invariant it protects.",
     ),
     "invariant-ownership": Lens(
@@ -92,7 +92,7 @@ DEFAULT_CODE_WEIGHTS: dict[str, dict[str, float]] = {
     "over-fragmentation": {"economy": 0.6, "change-shape": 0.4},
     "pass-through-layer": {"economy": 1.0, "invariant-ownership": 0.4},
     "silent-fallback": {"failure-semantics": 1.0, "proof-readiness": 0.6},
-    "single-use-abstraction": {"economy": 0.7, "domain-fit": 0.3},
+    "single-use-abstraction": {"economy": 0.15, "domain-fit": 0.05},
     "structural-erosion": {"change-shape": 1.0, "invariant-ownership": 0.5},
     "utility-dumping": {"domain-fit": 0.6, "invariant-ownership": 0.5},
 }

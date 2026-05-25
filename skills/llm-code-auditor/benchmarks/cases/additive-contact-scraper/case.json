@@ -1,24 +1,32 @@
 {
-  "id": "silent-fallback-loader",
-  "title": "Silent fallback hides invalid invoice input",
+  "id": "additive-contact-scraper",
+  "title": "Branch-heavy contact scraper should be remodeled by owned phases",
   "before": "before",
   "expected_findings": [
     {
       "code": "silent-fallback",
       "min_severity": "high"
+    },
+    {
+      "code": "structural-erosion",
+      "min_severity": "medium"
     }
   ],
   "expected_lenses": [
     {
-      "id": "failure-semantics",
-      "min_pressure": 0.5
+      "id": "change-shape",
+      "min_pressure": 0.34
     },
     {
-      "id": "proof-readiness",
-      "min_pressure": 0.34
+      "id": "failure-semantics",
+      "min_pressure": 0.5
     }
   ],
   "expected_remodel_friction": [
+    {
+      "kind": "branch_hubs",
+      "min_count": 1
+    },
     {
       "kind": "silent_boundaries",
       "min_count": 1
@@ -29,7 +37,7 @@
     "tests": "tests",
     "max_high_findings": 0,
     "max_medium_findings": 0,
-    "max_lens_pressure": 0.2,
+    "max_lens_pressure": 0.25,
     "max_remodel_friction": {
       "branch_hubs": 0,
       "empty_boundaries": 0,

@@ -8,6 +8,7 @@ This repository is the plugin root. It is not a marketplace repository and does 
 
 - an umbrella `llm-code-auditor` skill for generated or agent-written code cleanup
 - targeted skills for abstraction pruning, boundary invariants, readability, generated tests, dependency/API hallucinations, and performance simplicity
+- a code-remodel markup tool that redraws code structure after it is written
 - a quality-lens tool that gives the agent a higher-level model of code quality pressure
 - a dependency-free scanner for concrete generated-code review leads
 - repeatable quality benchmarks for prompt and skill tuning
@@ -24,6 +25,21 @@ pyproject.toml
 ```
 
 The marketplace repo should include this repository as the plugin source instead of copying the plugin into a nested local folder.
+
+## Code Remodel
+
+Use Code Remodel when exact findings are too narrow and the agent needs to see the shape of the codebase. The primary artifact can be a short manual remodel written by the agent after reading the code; the script below is a seed and sanity check:
+
+```bash
+python3 skills/llm-code-auditor/scripts/code_remodel.py <path>
+python3 skills/llm-code-auditor/scripts/code_remodel.py --json <path>
+```
+
+The remodel output is a custom post-code markup. It represents modules, symbols, ownership, calls, repeated concepts, unowned forwarders, branch hubs, generic boundaries, silent failure boundaries, wrong placement, guide-backed refactor move candidates, and additive drift. Its purpose is not to perfectly model program logic; it makes structural problems visible so the agent can decide how to reshape the code.
+
+Abstraction is treated as neutral. A one-use helper, class, or service can be the right code when it names a phase, protects a boundary, or makes an invariant readable. The remodel is meant to expose unowned indirection, redundant one-time methods, squeezed files, and code that keeps growing through branches and wrappers instead of being reconnected.
+
+The remodel language is calibrated against Fowler and Refactoring Guru references. It maps structural pressure to move families such as Extract Function, Inline Function, Move Function, Split Phase, Decompose Conditional, and Introduce Parameter Object while preserving the guardrail that smells are leads, not proof.
 
 ## Quality Lens
 
@@ -83,6 +99,7 @@ The validation runner checks:
 - plugin manifest JSON
 - Python compilation
 - scanner regression tests
+- code-remodel regression tests
 - quality-lens regression tests
 - benchmark regression tests
 - benchmark score

@@ -829,7 +829,9 @@ def called_name(node: ast.AST) -> str | None:
     return None
 
 
-def split_args(raw: str) -> list[str]:
+def split_args(raw: str | None) -> list[str]:
+    if raw is None:
+        return []
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 

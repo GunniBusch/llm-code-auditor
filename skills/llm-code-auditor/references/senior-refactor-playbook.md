@@ -58,16 +58,20 @@ Keep an abstraction when it protects a current boundary:
 - public API, plugin contract, protocol/schema vocabulary, generated client, or serialized format
 - security, authorization, transaction, concurrency, lifecycle, observability, or retry/idempotency policy
 - two real implementations with meaningful differences now
-- a domain concept that makes call sites clearer even if it has one implementation
+- a domain concept or algorithm phase that makes call sites clearer even if it has one implementation
 
 Remove or inline an abstraction when it is only:
 
-- one interface, one implementation, one caller
+- one interface, one implementation, one caller, and no owned responsibility
 - a wrapper that forwards the same arguments
 - a factory around simple construction
 - a strategy map with one strategy
 - a config/options object with unused future fields
 - a manager/service/processor name hiding mixed or trivial work
+
+Single use is a review lead, not proof. A one-use helper, class, or service can
+be excellent when it gives a dense operation a named phase, places behavior near
+the invariant owner, or protects a boundary the caller should not understand.
 
 ## Structural Erosion Checks
 
