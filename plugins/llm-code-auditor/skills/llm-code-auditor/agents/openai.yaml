@@ -1,0 +1,4 @@
+interface:
+  display_name: "LLM Code Auditor"
+  short_description: "Refactor AI-shaped code well"
+  default_prompt: "Use $llm-code-auditor to refactor this AI-shaped code into clean, task-fit human-quality code."

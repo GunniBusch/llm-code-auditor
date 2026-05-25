@@ -1,0 +1,17 @@
+{
+  "id": "structural-erosion-rules",
+  "title": "Branch-heavy rule matcher should become data-shaped",
+  "before": "before",
+  "expected_findings": [
+    {
+      "code": "structural-erosion",
+      "min_severity": "medium"
+    }
+  ],
+  "reference": {
+    "path": "after_good",
+    "tests": "tests",
+    "max_high_findings": 0,
+    "max_medium_findings": 0
+  }
+}

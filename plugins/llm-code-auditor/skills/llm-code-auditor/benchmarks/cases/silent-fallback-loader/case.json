@@ -1,0 +1,17 @@
+{
+  "id": "silent-fallback-loader",
+  "title": "Silent fallback hides invalid invoice input",
+  "before": "before",
+  "expected_findings": [
+    {
+      "code": "silent-fallback",
+      "min_severity": "high"
+    }
+  ],
+  "reference": {
+    "path": "after_good",
+    "tests": "tests",
+    "max_high_findings": 0,
+    "max_medium_findings": 0
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "pass-through-service-stack",
+  "title": "Pass-through service stack should collapse to the receipt behavior",
+  "before": "before",
+  "expected_findings": [
+    {
+      "code": "pass-through-layer",
+      "min_severity": "high"
+    },
+    {
+      "code": "naming-inflation",
+      "min_severity": "medium"
+    },
+    {
+      "code": "generic-abstraction-language",
+      "min_severity": "medium"
+    }
+  ],
+  "reference": {
+    "path": "after_good",
+    "tests": "tests",
+    "max_high_findings": 0,
+    "max_medium_findings": 0
+  }
+}

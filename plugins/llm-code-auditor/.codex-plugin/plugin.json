@@ -1,0 +1,45 @@
+{
+  "name": "llm-code-auditor",
+  "version": "0.4.0",
+  "description": "Refactor AI-shaped code into compact, readable, efficient, task-fit code with senior maintainer judgment.",
+  "author": {
+    "name": "Leon Adomaitis",
+    "email": "leon@adomaitis.de",
+    "url": "https://github.com/GunniBusch"
+  },
+  "homepage": "https://github.com/GunniBusch/llm-code-auditor",
+  "repository": "https://github.com/GunniBusch/llm-code-auditor",
+  "license": "BSD-3-Clause",
+  "keywords": [
+    "llm-code",
+    "code-review",
+    "refactoring",
+    "code-smells",
+    "quality"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "LLM Code Auditor",
+    "shortDescription": "Refactor AI-shaped code well",
+    "longDescription": "Audit and improve generated or agent-written code with an umbrella senior-refactor workflow plus targeted skills for abstraction judgment, boundary invariants, readable domain code, generated tests, dependency/API hallucinations, and performance simplicity. The plugin focuses on code that is compact enough, readable, efficient, locally idiomatic, testable, and fit for the actual task while preserving real boundaries instead of blindly deleting abstractions.",
+    "developerName": "Leon Adomaitis",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/GunniBusch/llm-code-auditor",
+    "privacyPolicyURL": "https://github.com/GunniBusch/llm-code-auditor",
+    "termsOfServiceURL": "https://github.com/GunniBusch/llm-code-auditor",
+    "defaultPrompt": [
+      "Refactor this AI-shaped code into clean, task-fit human-quality code.",
+      "Audit this code for LLM-generated patterns and fix the real ones.",
+      "Review these tests for brittle LLM patterns and reward hacking."
+    ],
+    "brandColor": "#111827",
+    "composerIcon": "./assets/llm-code-auditor-small.svg",
+    "logo": "./assets/llm-code-auditor.svg",
+    "screenshots": []
+  }
+}
