@@ -25,8 +25,8 @@ def test_reference_benchmark_suite_passes() -> None:
         stderr=subprocess.PIPE,
     )
 
-    assert "Benchmark cases: 5" in result.stdout
-    assert "Score: 20/20" in result.stdout
+    assert "Benchmark cases: 6" in result.stdout
+    assert "Score: 24/24" in result.stdout
     assert "Expected smell coverage: PASS" in result.stdout
     assert "Expected remodel friction: PASS" in result.stdout
     assert "Expected lens pressure: PASS" in result.stdout

@@ -30,6 +30,10 @@ python3 scripts/quality_lens.py benchmarks/cases/pass-through-service-stack/befo
 The benchmark gates still use concrete scanner and remodel thresholds so regressions are deterministic. The lens is the agent-facing view used to choose a refactor strategy from those signals.
 Each case can declare expected remodel friction, expected lens pressure for bad code, and maximum lens pressure for the reference refactor. That keeps the higher-level quality view tuneable instead of treating it as a cosmetic report.
 
+Some cases are calibrated from public-code structure studies. Their fixtures are
+original neutral code: no copied source, no original domain names, and no
+project-specific identifiers.
+
 ## Scoring Dimensions
 
 - Expected smell coverage: the scanner catches known high-value problems in bad code.
