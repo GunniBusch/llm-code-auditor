@@ -13,7 +13,15 @@ The goal is not to abolish abstraction or compress code at any cost. The goal is
 
 1. Inspect the changed files and surrounding call sites before editing.
 2. State the behavior and invariants that must remain true. If you cannot say what the code is for, do not judge its shape yet.
-3. Run the heuristic scanner when there is a local tree or file set:
+3. Run the quality lens when there is a local tree or file set and you need direction:
+
+```bash
+python3 scripts/quality_lens.py <path>
+```
+
+The lens gives a fault-tolerant code-quality view across domain fit, economy, invariant ownership, failure semantics, change shape, and proof readiness. Use its primary frame to decide how to inspect the code. It is a model for thinking, not an edit checklist.
+
+4. Run the heuristic scanner when you need concrete leads beneath the lens:
 
 ```bash
 python3 scripts/llm_code_smell_scan.py <path>
@@ -21,16 +29,16 @@ python3 scripts/llm_code_smell_scan.py <path>
 
 The scanner prints severity, confidence, and evidence. Treat `HIGH` as an actionable lead, `MEDIUM` as likely worth inspection, and `LOW` as a weak review signal that may be legitimate human code. Use `--min-severity medium` to hide weak leads.
 
-4. Read the reference that matches the work:
+5. Read the reference that matches the work:
    - `references/senior-refactor-playbook.md` for deep cleanup, adaptive reuse, and "make it human-quality" requests.
    - `references/pattern-catalog.md` for generated-code smell families and fixes.
    - `references/llm-failure-taxonomy.md` for correctness risks that clean-looking generated code often hides.
    - `references/human-code-quality.md` for code-review standards and stopping criteria.
-5. Fix only issues that are behavior-preserving or covered by tests. Add or adapt tests before non-trivial rewrites.
-6. Prefer deleting, inlining, renaming, moving code near its use, and strengthening boundary invariants over adding new frameworks.
-7. Verify with the repo's formatter, type checker, linter, and tests.
+6. Fix only issues that are behavior-preserving or covered by tests. Add or adapt tests before non-trivial rewrites.
+7. Prefer deleting, inlining, renaming, moving code near its use, and strengthening boundary invariants over adding new frameworks.
+8. Verify with the repo's formatter, type checker, linter, and tests.
 
-When tuning this skill or scanner behavior, run `scripts/quality_benchmark.py benchmarks`. To compare agent outputs, place candidate refactors in one directory per benchmark case and run `scripts/quality_benchmark.py benchmarks --candidate-root <path>`.
+When tuning this skill, lens, or scanner behavior, run `scripts/quality_benchmark.py benchmarks`. To compare agent outputs, place candidate refactors in one directory per benchmark case and run `scripts/quality_benchmark.py benchmarks --candidate-root <path>`.
 
 ## Quality Contract
 

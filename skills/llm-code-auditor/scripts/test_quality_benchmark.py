@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import subprocess
+import shutil
 from pathlib import Path
 
 
@@ -13,6 +14,9 @@ BENCHMARKS = ROOT / "benchmarks"
 
 
 def test_reference_benchmark_suite_passes() -> None:
+    for cache_dir in BENCHMARKS.rglob("__pycache__"):
+        shutil.rmtree(cache_dir)
+
     result = subprocess.run(
         ["python3", str(SCRIPT), str(BENCHMARKS)],
         check=True,
@@ -21,9 +25,10 @@ def test_reference_benchmark_suite_passes() -> None:
         stderr=subprocess.PIPE,
     )
 
-    assert "Benchmark cases: 3" in result.stdout
+    assert "Benchmark cases: 4" in result.stdout
     assert "Expected smell coverage: PASS" in result.stdout
     assert "Reference implementations: PASS" in result.stdout
+    assert not list(BENCHMARKS.rglob("__pycache__"))
 
 
 def main() -> int:

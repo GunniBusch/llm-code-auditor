@@ -1,0 +1,29 @@
+{
+  "id": "real-vibe-config-loader",
+  "title": "Messy generated config loader should become explicit boundary code",
+  "before": "before",
+  "expected_findings": [
+    {
+      "code": "naming-inflation",
+      "min_severity": "medium"
+    },
+    {
+      "code": "generic-abstraction-language",
+      "min_severity": "medium"
+    },
+    {
+      "code": "silent-fallback",
+      "min_severity": "high"
+    },
+    {
+      "code": "structural-erosion",
+      "min_severity": "medium"
+    }
+  ],
+  "reference": {
+    "path": "after_good",
+    "tests": "tests",
+    "max_high_findings": 0,
+    "max_medium_findings": 0
+  }
+}

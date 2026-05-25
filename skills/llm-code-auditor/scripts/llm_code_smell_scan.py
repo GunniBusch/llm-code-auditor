@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import argparse
 import ast
+import fnmatch
+import json
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-
 
 CODE_EXTENSIONS = {
     ".py",
@@ -29,7 +30,7 @@ CODE_EXTENSIONS = {
     ".cs",
 }
 
-SKIP_DIRS = {
+DEFAULT_SKIP_DIRS = {
     ".git",
     ".hg",
     ".svn",
@@ -45,7 +46,7 @@ SKIP_DIRS = {
     "coverage",
 }
 
-GENERIC_SUFFIXES = (
+DEFAULT_GENERIC_SUFFIXES = (
     "Manager",
     "Service",
     "Processor",
@@ -61,7 +62,7 @@ GENERIC_SUFFIXES = (
     "Helper",
 )
 
-GENERIC_WORDS = {
+DEFAULT_GENERIC_WORDS = {
     "entity",
     "item",
     "object",
@@ -71,7 +72,7 @@ GENERIC_WORDS = {
     "context",
 }
 
-EXTERNAL_PROTOCOL_NAMES = {
+DEFAULT_CONTRACTUAL_NAMES = {
     # Language Server Protocol capability names. These are protocol vocabulary,
     # not naming-inflation evidence.
     "callHierarchyProvider",
@@ -112,7 +113,6 @@ EXTERNAL_PROTOCOL_NAMES = {
 GENERIC_FUNCTION_RE = re.compile(
     r"\b(processData|handleRequest|executeTask|performAction|doStuff|handleData|processItem)\b"
 )
-GENERIC_SUFFIX_RE = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*(?:" + "|".join(GENERIC_SUFFIXES) + r")\b")
 GENERIC_DECLARATION_RE = re.compile(
     r"\b(class|interface|type|function|def|const|let|var|public|private|protected)\b"
 )
@@ -147,8 +147,21 @@ class Finding:
     evidence: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class ScannerConfig:
+    skip_dirs: frozenset[str]
+    ignore_patterns: tuple[str, ...]
+    utility_module_names: frozenset[str]
+    generic_suffixes: tuple[str, ...]
+    generic_words: frozenset[str]
+    contractual_names: frozenset[str]
+    generic_suffix_re: re.Pattern[str]
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Scan for likely LLM-generated code smells.")
+    parser = argparse.ArgumentParser(
+        description="Scan for likely LLM-generated code smells."
+    )
     parser.add_argument("paths", nargs="+", type=Path)
     parser.add_argument("--max-findings", type=int, default=200)
     parser.add_argument(
@@ -157,9 +170,17 @@ def main() -> int:
         default="low",
         help="Lowest severity to print. Default keeps weak review leads visible.",
     )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help="Optional JSON config. Defaults to .llm-code-auditor.json near scanned roots.",
+    )
     args = parser.parse_args()
 
-    files = sorted({file for path in args.paths for file in iter_code_files(path)})
+    config = load_config(args.paths, args.config)
+    files = sorted(
+        {file for path in args.paths for file in iter_code_files(path, config)}
+    )
     findings: list[Finding] = []
     file_texts: dict[Path, str] = {}
     for file in files:
@@ -168,9 +189,9 @@ def main() -> int:
         except UnicodeDecodeError:
             text = file.read_text(encoding="utf-8", errors="replace")
         file_texts[file] = text
-        findings.extend(scan_text(file, text))
+        findings.extend(scan_text(file, text, config))
         if file.suffix == ".py":
-            findings.extend(scan_python_ast(file, text))
+            findings.extend(scan_python_ast(file, text, config))
 
     findings.extend(scan_file_shape(files))
     findings.extend(scan_lsp_transport_contract(file_texts))
@@ -181,11 +202,18 @@ def main() -> int:
     ]
     findings = sorted(
         findings,
-        key=lambda item: (SEVERITY_ORDER[item.severity], str(item.path), item.line, item.code),
+        key=lambda item: (
+            SEVERITY_ORDER[item.severity],
+            str(item.path),
+            item.line,
+            item.code,
+        ),
     )
 
     for finding in findings[: args.max_findings]:
-        evidence = f" Evidence: {'; '.join(finding.evidence)}" if finding.evidence else ""
+        evidence = (
+            f" Evidence: {'; '.join(finding.evidence)}" if finding.evidence else ""
+        )
         print(
             f"{finding.path}:{finding.line}: {finding.severity.upper()} "
             f"{finding.confidence:.2f} {finding.code}: {finding.message}"
@@ -200,7 +228,90 @@ def main() -> int:
     return 0
 
 
-def iter_code_files(path: Path):
+def load_config(paths: list[Path], config_path: Path | None) -> ScannerConfig:
+    roots = [path if path.is_dir() else path.parent for path in paths]
+    data: dict[str, object] = {}
+    discovered = config_path or discover_config(roots)
+    if discovered is not None:
+        try:
+            loaded = json.loads(discovered.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise SystemExit(f"Invalid scanner config {discovered}: {error}") from error
+        if not isinstance(loaded, dict):
+            raise SystemExit(f"Invalid scanner config {discovered}: root must be an object")
+        data = loaded
+
+    skip_dirs = string_set(data.get("skip_dirs"), DEFAULT_SKIP_DIRS)
+    utility_module_names = string_set(
+        data.get("utility_module_names"),
+        {"utils", "helpers", "common", "shared", "base", "misc", "general"},
+    )
+    generic_suffixes = string_tuple(data.get("generic_suffixes"), DEFAULT_GENERIC_SUFFIXES)
+    generic_words = string_set(data.get("generic_words"), DEFAULT_GENERIC_WORDS)
+    contractual_names = string_set(
+        data.get("contractual_names"),
+        DEFAULT_CONTRACTUAL_NAMES,
+    )
+    ignore_patterns = tuple(sorted(set(gitignore_patterns(roots) + string_list(data.get("ignore_patterns")))))
+    suffix_pattern = "|".join(re.escape(suffix) for suffix in generic_suffixes)
+    generic_suffix_re = re.compile(
+        r"\b[A-Za-z_][A-Za-z0-9_]*(?:" + suffix_pattern + r")\b"
+        if suffix_pattern
+        else r"a\A"
+    )
+    return ScannerConfig(
+        skip_dirs=frozenset(skip_dirs),
+        ignore_patterns=ignore_patterns,
+        utility_module_names=frozenset(utility_module_names),
+        generic_suffixes=generic_suffixes,
+        generic_words=frozenset(generic_words),
+        contractual_names=frozenset(contractual_names),
+        generic_suffix_re=generic_suffix_re,
+    )
+
+
+def discover_config(roots: list[Path]) -> Path | None:
+    for root in roots:
+        for directory in (root, *root.parents):
+            candidate = directory / ".llm-code-auditor.json"
+            if candidate.exists():
+                return candidate
+    return None
+
+
+def string_set(value: object, default: set[str] | frozenset[str] | tuple[str, ...]) -> set[str]:
+    return set(string_list(value)) if value is not None else set(default)
+
+
+def string_tuple(value: object, default: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(string_list(value)) if value is not None else default
+
+
+def string_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise SystemExit("Scanner config lists must contain only strings")
+    return value
+
+
+def gitignore_patterns(roots: list[Path]) -> list[str]:
+    patterns: list[str] = []
+    seen: set[Path] = set()
+    for root in roots:
+        for directory in (root, *root.parents):
+            ignore_file = directory / ".gitignore"
+            if ignore_file in seen or not ignore_file.exists():
+                continue
+            seen.add(ignore_file)
+            for line in ignore_file.read_text(encoding="utf-8", errors="replace").splitlines():
+                pattern = line.strip()
+                if pattern and not pattern.startswith("#") and not pattern.startswith("!"):
+                    patterns.append(pattern)
+    return patterns
+
+
+def iter_code_files(path: Path, config: ScannerConfig):
     if path.is_file():
         if path.suffix in CODE_EXTENSIONS:
             yield path
@@ -209,23 +320,41 @@ def iter_code_files(path: Path):
     for child in path.rglob("*"):
         if child.is_dir():
             continue
-        if any(part in SKIP_DIRS for part in child.parts):
+        if is_ignored_path(child, config):
             continue
         if child.suffix in CODE_EXTENSIONS:
             yield child
 
 
-def scan_text(path: Path, text: str) -> list[Finding]:
+def is_ignored_path(path: Path, config: ScannerConfig) -> bool:
+    if any(part in config.skip_dirs for part in path.parts):
+        return True
+    display_path = "/".join(display_parts(path))
+    for pattern in config.ignore_patterns:
+        normalized = pattern.strip("/")
+        if not normalized:
+            continue
+        if pattern.endswith("/") and normalized in path.parts:
+            return True
+        if fnmatch.fnmatch(display_path, normalized) or fnmatch.fnmatch(path.name, normalized):
+            return True
+        if display_path.startswith(f"{normalized}/"):
+            return True
+    return False
+
+
+def scan_text(path: Path, text: str, config: ScannerConfig) -> list[Finding]:
     findings: list[Finding] = []
-    findings.extend(scan_path_findings(path))
+    findings.extend(scan_path_findings(path, config))
     for index, line in enumerate(text.splitlines(), start=1):
-        findings.extend(scan_line_patterns(path, index, line))
+        findings.extend(scan_line_patterns(path, index, line, config))
     findings.extend(scan_text_patterns(path, text))
     return findings
 
-def scan_path_findings(path: Path) -> list[Finding]:
+
+def scan_path_findings(path: Path, config: ScannerConfig) -> list[Finding]:
     findings: list[Finding] = []
-    if path.stem.lower() in {"utils", "helpers", "common", "shared", "base", "misc", "general"}:
+    if path.stem.lower() in config.utility_module_names:
         findings.append(
             Finding(
                 path,
@@ -255,9 +384,14 @@ def scan_path_findings(path: Path) -> list[Finding]:
     return findings
 
 
-def scan_line_patterns(path: Path, index: int, line: str) -> list[Finding]:
+def scan_line_patterns(
+    path: Path,
+    index: int,
+    line: str,
+    config: ScannerConfig,
+) -> list[Finding]:
     findings: list[Finding] = []
-    findings.extend(scan_generic_names(path, index, line))
+    findings.extend(scan_generic_names(path, index, line, config))
     comment = COMMENT_RE.match(line)
     if comment and NARRATION_RE.search(comment.group(2)):
         findings.append(
@@ -275,10 +409,15 @@ def scan_line_patterns(path: Path, index: int, line: str) -> list[Finding]:
     return findings
 
 
-def scan_generic_names(path: Path, index: int, line: str) -> list[Finding]:
+def scan_generic_names(
+    path: Path,
+    index: int,
+    line: str,
+    config: ScannerConfig,
+) -> list[Finding]:
     findings: list[Finding] = []
-    for match in GENERIC_SUFFIX_RE.finditer(line):
-        if is_external_protocol_name(match.group(0)):
+    for match in config.generic_suffix_re.finditer(line):
+        if is_contractual_name(match.group(0), config):
             continue
         findings.append(
             Finding(
@@ -308,8 +447,10 @@ def scan_generic_names(path: Path, index: int, line: str) -> list[Finding]:
         )
 
     if GENERIC_DECLARATION_RE.search(line):
-        for word in GENERIC_WORDS:
+        for word in config.generic_words:
             if re.search(rf"\b{word}\b", line, flags=re.IGNORECASE):
+                if is_builtin_type_annotation(line, word):
+                    continue
                 findings.append(
                     Finding(
                         path,
@@ -319,11 +460,19 @@ def scan_generic_names(path: Path, index: int, line: str) -> list[Finding]:
                         "Replace with domain language when this is not a boundary type.",
                         severity="medium",
                         confidence=0.55,
-                        evidence=("generic noun appears in a declaration or API surface",),
+                        evidence=(
+                            "generic noun appears in a declaration or API surface",
+                        ),
                     )
                 )
                 break
     return findings
+
+
+def is_builtin_type_annotation(line: str, word: str) -> bool:
+    if word != "object":
+        return False
+    return bool(re.search(r"(->|:)\s*[^#=]*\bobject\b", line))
 
 
 def scan_text_patterns(path: Path, text: str) -> list[Finding]:
@@ -364,7 +513,7 @@ def scan_text_patterns(path: Path, text: str) -> list[Finding]:
     return findings
 
 
-def scan_python_ast(path: Path, text: str) -> list[Finding]:
+def scan_python_ast(path: Path, text: str, config: ScannerConfig) -> list[Finding]:
     try:
         tree = ast.parse(text)
     except SyntaxError as error:
@@ -380,7 +529,9 @@ def scan_python_ast(path: Path, text: str) -> list[Finding]:
 
     function_defs, pass_through_lines, findings = collect_python_functions(path, tree)
     calls = collect_python_calls(tree)
-    findings.extend(scan_single_use_functions(path, function_defs, calls, pass_through_lines))
+    findings.extend(
+        scan_single_use_functions(path, function_defs, calls, pass_through_lines, config)
+    )
 
     return findings
 
@@ -419,13 +570,14 @@ def scan_single_use_functions(
     function_defs: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
     calls: Counter[str],
     pass_through_lines: set[int],
+    config: ScannerConfig,
 ) -> list[Finding]:
     findings: list[Finding] = []
     for name, node in function_defs.items():
         if name == "main" or node.lineno in pass_through_lines:
             continue
         if calls[name] == 1:
-            findings.append(classify_single_use_function(path, name, node))
+            findings.append(classify_single_use_function(path, name, node, config))
     return findings
 
 
@@ -445,7 +597,9 @@ def scan_python_function(
                 "Inline if no boundary, validation, or mapping is added.",
                 severity="high",
                 confidence=0.9,
-                evidence=("single return statement delegates same parameters unchanged",),
+                evidence=(
+                    "single return statement delegates same parameters unchanged",
+                ),
             )
         )
 
@@ -476,7 +630,9 @@ def scan_python_function(
                 "Look for a domain table, state model, or split by real invariant before adding more branches.",
                 severity="medium",
                 confidence=0.7,
-                evidence=("branch-heavy function is a common long-horizon agent degradation shape",),
+                evidence=(
+                    "branch-heavy function is a common long-horizon agent degradation shape",
+                ),
             )
         )
 
@@ -488,7 +644,9 @@ def broad_silent_fallback(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int |
         if not isinstance(child, ast.Try):
             continue
         for handler in child.handlers:
-            if catches_broad_exception(handler) and all(is_empty_fallback(statement) for statement in handler.body):
+            if catches_broad_exception(handler) and all(
+                is_empty_fallback(statement) for statement in handler.body
+            ):
                 return handler.lineno
     return None
 
@@ -500,7 +658,8 @@ def catches_broad_exception(handler: ast.ExceptHandler) -> bool:
         return handler.type.id in {"Exception", "BaseException"}
     if isinstance(handler.type, ast.Tuple):
         return any(
-            isinstance(exception, ast.Name) and exception.id in {"Exception", "BaseException"}
+            isinstance(exception, ast.Name)
+            and exception.id in {"Exception", "BaseException"}
             for exception in handler.type.elts
         )
     return False
@@ -523,17 +682,15 @@ def is_empty_fallback(statement: ast.stmt) -> bool:
     return False
 
 
-def structural_erosion(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[int, int] | None:
+def structural_erosion(
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[int, int] | None:
     line_span = (node.end_lineno or node.lineno) - node.lineno + 1
     branch_nodes = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.IfExp)
     match_node = getattr(ast, "Match", None)
     if match_node is not None:
         branch_nodes = (*branch_nodes, match_node)
-    branch_count = sum(
-        1
-        for child in ast.walk(node)
-        if isinstance(child, branch_nodes)
-    )
+    branch_count = sum(1 for child in ast.walk(node) if isinstance(child, branch_nodes))
     if branch_count >= 8 and line_span >= 15:
         return branch_count, line_span
     return None
@@ -549,7 +706,9 @@ def scan_lsp_transport_contract(file_texts: dict[Path, str]) -> list[Finding]:
     if not lsp_sites:
         return findings
 
-    has_transport_arg = any(LSP_TRANSPORT_ARG_RE.search(text) for text in file_texts.values())
+    has_transport_arg = any(
+        LSP_TRANSPORT_ARG_RE.search(text) for text in file_texts.values()
+    )
     if has_transport_arg:
         return findings
 
@@ -563,14 +722,21 @@ def scan_lsp_transport_contract(file_texts: dict[Path, str]) -> list[Finding]:
             "Verify the wrapper or package script launches the server with --stdio, --node-ipc, or --socket.",
             severity="high",
             confidence=0.8,
-            evidence=("createConnection found", "no --stdio/--node-ipc/--socket found in scanned files"),
+            evidence=(
+                "createConnection found",
+                "no --stdio/--node-ipc/--socket found in scanned files",
+            ),
         )
     )
     return findings
 
 
 def is_python_pass_through(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    body = [statement for statement in node.body if not isinstance(statement, ast.Expr) or not is_docstring(statement)]
+    body = [
+        statement
+        for statement in node.body
+        if not isinstance(statement, ast.Expr) or not is_docstring(statement)
+    ]
     if len(body) != 1 or not isinstance(body[0], ast.Return):
         return False
     call = body[0].value
@@ -588,6 +754,7 @@ def classify_single_use_function(
     path: Path,
     name: str,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
+    config: ScannerConfig,
 ) -> Finding:
     lowered = name.lower()
     evidence = ["called once in this file"]
@@ -605,12 +772,12 @@ def classify_single_use_function(
         severity = "medium"
         confidence = 0.75
         message = f"`{name}` is single-use and generically named."
-    elif any(lowered.endswith(suffix.lower()) for suffix in GENERIC_SUFFIXES):
+    elif any(lowered.endswith(suffix.lower()) for suffix in config.generic_suffixes):
         evidence.append("generic architecture/job-title suffix")
         severity = "medium"
         confidence = 0.65
         message = f"`{name}` is single-use and uses a generic role suffix."
-    elif any(word in lowered for word in GENERIC_WORDS):
+    elif any(word in lowered for word in config.generic_words):
         evidence.append("generic noun in helper name")
         severity = "medium"
         confidence = 0.6
@@ -631,8 +798,8 @@ def classify_single_use_function(
     )
 
 
-def is_external_protocol_name(name: str) -> bool:
-    return name in EXTERNAL_PROTOCOL_NAMES
+def is_contractual_name(name: str, config: ScannerConfig) -> bool:
+    return name in config.contractual_names
 
 
 def executable_statement_count(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
@@ -645,11 +812,13 @@ def executable_statement_count(node: ast.FunctionDef | ast.AsyncFunctionDef) -> 
 
 def is_scanner_pattern_definition(line: str) -> bool:
     stripped = line.strip()
-    return "_RE =" in line or "GENERIC_" in line or stripped.startswith(("r\"", "r'"))
+    return "_RE =" in line or "GENERIC_" in line or stripped.startswith(('r"', "r'"))
 
 
 def is_docstring(statement: ast.Expr) -> bool:
-    return isinstance(statement.value, ast.Constant) and isinstance(statement.value.value, str)
+    return isinstance(statement.value, ast.Constant) and isinstance(
+        statement.value.value, str
+    )
 
 
 def called_name(node: ast.AST) -> str | None:
@@ -687,13 +856,26 @@ def scan_file_shape(files: list[Path]) -> list[Finding]:
         line_counts = []
         for file in siblings:
             try:
-                line_counts.append((file, len(file.read_text(encoding="utf-8", errors="replace").splitlines())))
+                line_counts.append(
+                    (
+                        file,
+                        len(
+                            file.read_text(
+                                encoding="utf-8", errors="replace"
+                            ).splitlines()
+                        ),
+                    )
+                )
             except OSError:
                 continue
         counts = Counter(count for _, count in line_counts)
-        repeated = [count for count, amount in counts.items() if amount >= 3 and count > 20]
+        repeated = [
+            count for count, amount in counts.items() if amount >= 3 and count > 20
+        ]
         for count in repeated:
-            names = [file.name for file, line_count in line_counts if line_count == count][:5]
+            names = [
+                file.name for file, line_count in line_counts if line_count == count
+            ][:5]
             findings.append(
                 Finding(
                     directory,

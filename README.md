@@ -1,66 +1,108 @@
 # LLM Code Auditor
 
-Dedicated Codex plugin repository for `llm-code-auditor`.
+Codex plugin for refactoring AI-shaped code into compact, readable, efficient, task-fit code with senior maintainer judgment.
 
-The plugin helps coding agents refactor AI-shaped code into compact, readable, efficient, task-fit code with senior maintainer judgment. It focuses on:
+This repository is the plugin root. It is not a marketplace repository and does not contain a nested `plugins/llm-code-auditor` wrapper.
 
-- preserving real abstractions and removing unearned machinery
-- adapting existing repo concepts instead of inventing parallel helpers
-- detecting generated-code smells and long-horizon structural erosion
-- repairing brittle or reward-hacked tests
-- verifying dependency/API surfaces before trusting generated code
-- benchmarking prompt and skill changes against repeatable quality cases
+## What It Provides
 
-## Repository Layout
+- an umbrella `llm-code-auditor` skill for generated or agent-written code cleanup
+- targeted skills for abstraction pruning, boundary invariants, readability, generated tests, dependency/API hallucinations, and performance simplicity
+- a quality-lens tool that gives the agent a higher-level model of code quality pressure
+- a dependency-free scanner for concrete generated-code review leads
+- repeatable quality benchmarks for prompt and skill tuning
+- a `uv`-backed validation command for the plugin, tools, and benchmark suite
+
+## Layout
 
 ```text
-.agents/plugins/marketplace.json
-plugins/llm-code-auditor/
-  .codex-plugin/plugin.json
-  assets/
-  skills/
+.codex-plugin/plugin.json
+assets/
+skills/
+scripts/validate.py
+pyproject.toml
 ```
 
-Codex discovers the repo-local marketplace at `.agents/plugins/marketplace.json`. The marketplace includes only `llm-code-auditor` and points to `./plugins/llm-code-auditor`.
+The marketplace repo should include this repository as the plugin source instead of copying the plugin into a nested local folder.
+
+## Quality Lens
+
+Run the quality lens first when the agent needs direction rather than a list of exact findings:
+
+```bash
+python3 skills/llm-code-auditor/scripts/quality_lens.py <path>
+python3 skills/llm-code-auditor/scripts/quality_lens.py --json <path>
+```
+
+The lens summarizes pressure across domain fit, economy, invariant ownership, failure semantics, change shape, and proof readiness. It consumes scanner evidence, Python structure, and optional project configuration, then gives the agent a refactor frame instead of treating every exact match as a mandatory edit.
+
+## Scanner
+
+```bash
+python3 skills/llm-code-auditor/scripts/llm_code_smell_scan.py <path>
+python3 skills/llm-code-auditor/scripts/llm_code_smell_scan.py --min-severity medium <path>
+```
+
+Project-specific scanner configuration can be placed in `.llm-code-auditor.json`:
+
+```json
+{
+  "ignore_patterns": ["generated/"],
+  "contractual_names": ["customProvider"],
+  "generic_suffixes": ["Manager", "Service", "Processor"],
+  "lens_weights": {
+    "naming-inflation": {
+      "domain-fit": 0.8,
+      "economy": 0.4
+    }
+  }
+}
+```
+
+## Benchmarks
+
+```bash
+python3 skills/llm-code-auditor/scripts/quality_benchmark.py \
+  skills/llm-code-auditor/benchmarks
+```
+
+Use `--candidate-root <path>` to evaluate agent-produced refactors against behavior tests and scanner thresholds.
 
 ## Validation
 
-Run the plugin checks:
+Run the full local validation suite:
 
 ```bash
-python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
-python3 -m json.tool plugins/llm-code-auditor/.codex-plugin/plugin.json >/dev/null
-python3 -m py_compile \
-  plugins/llm-code-auditor/skills/llm-code-auditor/scripts/llm_code_smell_scan.py \
-  plugins/llm-code-auditor/skills/llm-code-auditor/scripts/quality_benchmark.py
-python3 plugins/llm-code-auditor/skills/llm-code-auditor/scripts/test_llm_code_smell_scan.py
-python3 plugins/llm-code-auditor/skills/llm-code-auditor/scripts/test_quality_benchmark.py
-python3 plugins/llm-code-auditor/skills/llm-code-auditor/scripts/quality_benchmark.py \
-  plugins/llm-code-auditor/skills/llm-code-auditor/benchmarks
+UV_CACHE_DIR=/private/tmp/uv-cache uv run python scripts/validate.py
 ```
 
-If the local Codex validation scripts are available:
+The validation runner checks:
 
-```bash
-python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/llm-code-auditor
-for d in plugins/llm-code-auditor/skills/*; do
-  python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py "$d"
-done
-```
+- plugin manifest JSON
+- Python compilation
+- scanner regression tests
+- quality-lens regression tests
+- benchmark regression tests
+- benchmark score
+- Codex plugin and skill validators when available locally
 
-## Publishing
+## Marketplace Entry
 
-Intended GitHub repository:
+The verified Codex marketplace entry shape uses a local plugin path. In the marketplace repository, include this repository as a submodule at `plugins/llm-code-auditor` and keep the entry local:
 
-```text
-https://github.com/GunniBusch/llm-code-auditor
-```
-
-After the GitHub repo exists:
-
-```bash
-git remote set-url origin https://github.com/GunniBusch/llm-code-auditor.git
-git push -u origin main
+```json
+{
+  "name": "llm-code-auditor",
+  "source": {
+    "source": "local",
+    "path": "./plugins/llm-code-auditor"
+  },
+  "policy": {
+    "installation": "AVAILABLE",
+    "authentication": "ON_INSTALL"
+  },
+  "category": "Coding"
+}
 ```
 
 ## License

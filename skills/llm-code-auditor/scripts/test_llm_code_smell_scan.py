@@ -155,6 +155,84 @@ def match_rule(rule, candidate):
         assert "match_rule" in output
 
 
+def test_builtin_object_type_annotation_is_not_generic_language() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "api_result.py").write_text(
+            """
+def result_to_json(result: CaseResult) -> dict[str, object]:
+    return {"name": result.name}
+""",
+            encoding="utf-8",
+        )
+
+        output = run_scan(root, "--min-severity", "medium")
+        assert "generic-abstraction-language" not in output
+
+
+def test_gitignore_excludes_generated_python_files() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".gitignore").write_text("generated/\n", encoding="utf-8")
+        generated = root / "generated"
+        generated.mkdir()
+        (generated / "helpers.py").write_text(
+            """
+def processData(data):
+    return data
+""",
+            encoding="utf-8",
+        )
+
+        output = run_scan(root, "--min-severity", "medium")
+        assert "processData" not in output
+        assert "generic-abstraction-language" not in output
+
+
+def test_project_config_can_add_contractual_names() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".llm-code-auditor.json").write_text(
+            '{"contractual_names": ["customProvider"]}\n',
+            encoding="utf-8",
+        )
+        (root / "plugin_contract.py").write_text(
+            """
+class customProvider:
+    pass
+""",
+            encoding="utf-8",
+        )
+
+        output = run_scan(root, "--min-severity", "medium")
+        assert "customProvider" not in output
+        assert "naming-inflation" not in output
+
+
+def test_project_config_can_override_generic_suffixes() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".llm-code-auditor.json").write_text(
+            '{"generic_suffixes": ["Thingy"]}\n',
+            encoding="utf-8",
+        )
+        (root / "names.py").write_text(
+            """
+class DataManager:
+    pass
+
+class BillingThingy:
+    pass
+""",
+            encoding="utf-8",
+        )
+
+        output = run_scan(root, "--min-severity", "medium")
+        assert "DataManager" not in output
+        assert "BillingThingy" in output
+        assert "naming-inflation" in output
+
+
 def main() -> int:
     tests = [
         test_lsp_capability_names_are_not_naming_inflation,
@@ -163,6 +241,10 @@ def main() -> int:
         test_lsp_connection_with_wrapper_transport_arg_is_not_reported,
         test_broad_exception_with_empty_fallback_is_reported,
         test_branch_heavy_function_is_reported_as_structural_erosion,
+        test_builtin_object_type_annotation_is_not_generic_language,
+        test_gitignore_excludes_generated_python_files,
+        test_project_config_can_add_contractual_names,
+        test_project_config_can_override_generic_suffixes,
     ]
     for test in tests:
         test()

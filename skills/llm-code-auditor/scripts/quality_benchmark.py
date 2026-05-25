@@ -171,6 +171,7 @@ def run_behavior_tests(source_dir: Path, tests_dir: Path) -> bool:
         if not existing_pythonpath
         else f"{source_dir}{os.pathsep}{existing_pythonpath}"
     )
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     result = subprocess.run(
         ["python3", "-m", "unittest", "discover", "-s", str(tests_dir)],
         text=True,
