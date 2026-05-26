@@ -1,9 +1,9 @@
 # Code Remodel Markup
 
-Code Remodel Markup is a post-code representation for LLM refactoring. It is
-not a source language, not a compiler IR, and not a static analyzer verdict. Its
-job is to redraw already-written code so structural quality becomes easier to
-reason about.
+Code Remodel Markup is a compact post-code representation for LLM refactoring.
+It is not a source language, not a compiler IR, and not a static analyzer
+verdict. Its job is to redraw already-written code so structural quality becomes
+easier to reason about.
 
 The most important tool is the model the agent writes after reading the code.
 Use `remodel-first-framework.md` for the full workflow. The bundled script is a
@@ -15,9 +15,11 @@ python3 scripts/code_remodel.py --json <path>
 ```
 
 Do not treat script output as truth. Rewrite or extend the markup manually when
-the code's real shape is clearer than the heuristic model. The act of writing
-the model is useful because it makes placement, ownership, additive branches,
-redundant methods, and squeezed files visible from another view.
+the code's real shape is clearer than the heuristic model. Explicit human
+feedback is also evidence: if a maintainer says an abstraction is useful,
+misplaced, redundant, too verbose, or worse than the original, model that
+feedback as a source and reconcile it against the code. Static findings are
+secondary leads, not authority.
 
 Use `refactoring-guide-map.md` as calibration when choosing moves. The remodel
 language borrows guide analogies from Fowler and Refactoring Guru, but keeps the
@@ -46,17 +48,23 @@ still be valid when it represents a real boundary.
 When the structure is subtle, write a compact manual model before editing:
 
 ```text
-@remodel version=2
+@remodel version=3 format=compact
   purpose="manual structural model before refactor"
+  authority="manual multi-pass model; human feedback outranks static leads"
 
 @refactor_guide
-  source: "Fowler Code Smell | Refactoring Guru smells | local framework docs"
-  principle: "smells are leads; prove the deeper problem locally"
+  sources="Fowler Code Smell | Refactoring Guru smells | local framework docs"
+  principle="smells are leads; prove the deeper problem locally"
 
 @context
   behavior: "observable behavior that must stay true"
   invariants: "rules that should have one owner"
   constraints: "public API, schema, protocol, perf, compatibility"
+
+@feedback source="maintainer"
+  accept: "constraints or code shapes the user says are valuable"
+  reject: "specific examples the user says are worse, redundant, or misplaced"
+  reconcile: "what the code evidence supports, contradicts, or leaves open"
 
 @module "path/to/file.py"
   owns: "what this file is responsible for today"
@@ -92,6 +100,12 @@ When the structure is subtle, write a compact manual model before editing:
   guardrail: "why this move might be wrong here"
   proof: "test/type/manual trace required before edit"
 
+@remodel_passes
+  pass=1 source="code+tests" goal="model current ownership and behavior"
+  pass=2 source="human-feedback" goal="treat explicit maintainer feedback as evidence"
+  pass=3 source="static-leads" goal="use analyzer output only as weak supporting leads"
+  pass=4 source="after-rewrite" goal="prove pressure was removed without losing behavior"
+
 @after_remodel
   behavior: "same observable contract or intentionally changed contract"
   owners: "one owner per invariant after the rewrite"
@@ -107,8 +121,10 @@ more code?"
 
 ## What The Syntax Should Reveal
 
-The syntax should make the structural problem visible without requiring a
-separate detector verdict:
+The syntax should be brief enough for the agent to keep in working memory while
+still preserving the important information. Prefer single-line entries with
+named attributes over prose paragraphs. The structural problem should be visible
+without requiring a separate detector verdict:
 
 - Many `@symbol` entries with `owns="delegation-only"` usually means indirection
   is standing in for ownership.
@@ -123,6 +139,8 @@ separate detector verdict:
   wrong is too eager.
 - `@after_remodel` should be shorter and clearer than the before model. If it
   needs more caveats, the code may have become worse.
+- `@feedback` and `@remodel_passes` should show when human critique changed the
+  model and when static findings were only used as a check.
 
 When using public code or framework docs for calibration, copy only the
 structural lesson: phase boundaries, dispatch shape, ownership placement,

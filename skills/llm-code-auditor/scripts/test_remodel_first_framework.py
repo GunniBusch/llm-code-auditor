@@ -28,14 +28,17 @@ def test_framework_defines_manual_remodel_contract() -> None:
     for required in (
         "The LLM is the modeling tool",
         "The Python tools are support machinery",
+        "Explicit human feedback is a secondary source of truth",
         "## Manual Remodel Contract",
         "`@context`",
+        "`@feedback`",
         "`@module`",
         "`@flow`",
         "`@decision`",
         "`@rewrite_pressure`",
         "`@refactor_moves`",
         "`@after_remodel`",
+        "`@remodel_passes`",
         "Good Structure Signals",
         "Bad Structure Signals",
     ):
@@ -45,7 +48,10 @@ def test_framework_defines_manual_remodel_contract() -> None:
 def test_markup_reference_includes_after_remodel_and_public_code_guardrail() -> None:
     text = MARKUP.read_text(encoding="utf-8")
     assert "@after_remodel" in text
+    assert "@feedback" in text
+    assert "@remodel_passes" in text
     assert "What The Syntax Should Reveal" in text
+    assert "secondary leads, not authority" in text
     assert "Do not copy source snippets" in text
     assert "domain names" in text
     assert "identifiers into benchmark fixtures" in text

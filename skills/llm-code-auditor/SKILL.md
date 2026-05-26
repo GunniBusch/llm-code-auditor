@@ -19,9 +19,10 @@ the LLM as the modeling tool:
 3. Search for the existing repo concept that should own the work: parser, schema, route, command registry, state model, adapter, lifecycle hook, domain module, or tested helper.
 4. When idioms, performance expectations, security posture, or framework patterns matter, look up current best practices for the specific language, framework, field, subtopic, and pattern. Prefer primary sources: official docs, language references, framework guides, standards, release notes, and well-established project docs. Use those sources to calibrate judgment; do not copy generic advice or impose patterns that do not fit the local code.
 5. Write a compact manual remodel when structure is unclear, duplicated, over-layered, squeezed into the wrong file, or hard to reason about. Use `references/remodel-first-framework.md` and `references/code-remodel-markup.md` for the syntax. The model should show current ownership, intended ownership, misplaced responsibilities, additive paths, useful abstractions, candidate moves, guardrails, and proof needs.
-6. Read the remodel before choosing edits. Too many `unowned-forwarder`, `branch-hub`, `silent-boundary`, `generic-boundary`, `spread-concept`, or `module-friction` entries should make the bad shape visible without needing an exact detector verdict.
-7. Rewrite only after the ownership move is clear. Prefer moving behavior to the owner, splitting real phases, converting additive branches into a table/state/parser where appropriate, deleting unearned wrappers, and preserving boundaries that earn their place.
-8. Verify with behavior tests, types, runtime checks, or a precise manual trace. For non-trivial cleanups, write a short after-remodel: what pressure was removed, what boundary was preserved, and what proof covers the rewrite.
+6. Run more than one modeling pass when the code is messy or the user gives critique. First model source and tests, then model explicit human feedback as evidence, then use static findings only as weak supporting leads.
+7. Read the remodel before choosing edits. Too many `unowned-forwarder`, `branch-hub`, `silent-boundary`, `generic-boundary`, `spread-concept`, or `module-friction` entries should make the bad shape visible without needing an exact detector verdict.
+8. Rewrite only after the ownership move is clear. Prefer moving behavior to the owner, splitting real phases, converting additive branches into a table/state/parser where appropriate, deleting unearned wrappers, and preserving boundaries that earn their place.
+9. Verify with behavior tests, types, runtime checks, or a precise manual trace. For non-trivial cleanups, write a short after-remodel: what pressure was removed, what boundary was preserved, and what proof covers the rewrite.
 
 The bundled scripts are support tools, not the core workflow.
 
@@ -42,7 +43,7 @@ python3 scripts/quality_lens.py <path>
 
 The lens gives a fault-tolerant code-quality view across domain fit, economy, invariant ownership, failure semantics, change shape, and proof readiness. Use its primary frame to inspect the code, not as an edit checklist.
 
-Run the heuristic scanner only when you need concrete leads beneath the model or a regression check:
+Run the heuristic scanner only when you need concrete leads beneath the model or a regression check. Do not let it override behavior, local ownership, or explicit maintainer feedback:
 
 ```bash
 python3 scripts/llm_code_smell_scan.py <path>

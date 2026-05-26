@@ -62,7 +62,8 @@ def load_config(data):
         )
 
         output = run_remodel(root)
-        assert "@remodel version=2" in output
+        assert "@remodel version=3 format=compact" in output
+        assert "human feedback outranks static leads" in output
         assert "@refactor_guide" in output
         assert "Refactoring Guru" in output
         assert "Martin Fowler" in output
@@ -74,6 +75,9 @@ def load_config(data):
         assert "@refactor_moves" in output
         assert "Extract Function" in output
         assert "Inline Function/Method" in output
+        assert "@remodel_passes" in output
+        assert 'source="human-feedback"' in output
+        assert 'source="static-leads"' in output
         assert "@remodel_questions" in output
 
 

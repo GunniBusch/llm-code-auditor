@@ -736,8 +736,9 @@ def symbol_to_json(symbol: SymbolModel) -> dict[str, Any]:
 
 def render_markup(model: dict[str, Any], max_symbols: int) -> str:
     lines = [
-        "@remodel version=2",
+        "@remodel version=3 format=compact",
         '  purpose="post-code structural model for refactoring"',
+        '  authority="manual multi-pass model; human feedback outranks static leads"',
         f"  files={len(model['files'])}",
     ]
     lines.extend(render_refactor_guide(model["guide_sources"]))
@@ -751,16 +752,14 @@ def render_markup(model: dict[str, Any], max_symbols: int) -> str:
 
 
 def render_refactor_guide(sources: list[dict[str, str]]) -> list[str]:
-    lines = ["@refactor_guide"]
-    for source in sources:
-        lines.append(
-            f"  source id={quote(source['id'])} name={quote(source['name'])} url={quote(source['url'])}"
-        )
-        lines.append(f"    use: {quote(source['use'])}")
-    lines.append(
-        '  principle: "A smell is a lead. Prove the deeper structural problem before editing."'
+    source_refs = "; ".join(
+        f"{source['name']} <{source['url']}>" for source in sources
     )
-    return lines
+    return [
+        "@refactor_guide",
+        f"  sources={quote(source_refs)}",
+        '  principle="A smell is a lead. Prove the deeper structural problem before editing."',
+    ]
 
 
 def render_lens(lens: dict[str, Any]) -> list[str]:
@@ -779,13 +778,13 @@ def render_lens(lens: dict[str, Any]) -> list[str]:
         )
         lines.append(f"  pressure: {pressure}")
     protocol = lens["agent_protocol"]
-    lines.append(f"  mode={quote(protocol['mode'])}")
-    for question in protocol["inspect"]:
-        lines.append(f"  inspect: {quote(question)}")
-    for move in protocol["move"]:
-        lines.append(f"  move: {quote(move)}")
-    for avoid in protocol["avoid"]:
-        lines.append(f"  avoid: {quote(avoid)}")
+    lines.append(
+        "  protocol "
+        f"mode={quote(protocol['mode'])} "
+        f"inspect={quote(' | '.join(protocol['inspect']))} "
+        f"move={quote(' | '.join(protocol['move']))} "
+        f"avoid={quote(' | '.join(protocol['avoid']))}"
+    )
     return lines
 
 
@@ -805,9 +804,9 @@ def render_concept_map(concepts: list[dict[str, Any]]) -> list[str]:
         else:
             owner_names = "none"
         lines.append(
-            f"  concept={quote(str(concept['concept']))} count={concept['count']} owner_candidates={quote(owner_names)}"
+            f"  concept={quote(str(concept['concept']))} count={concept['count']} "
+            f"owners={quote(owner_names)} question={quote(str(concept['question']))}"
         )
-        lines.append(f"    question: {quote(str(concept['question']))}")
     return lines
 
 
@@ -830,30 +829,26 @@ def render_modules(model: dict[str, Any], max_symbols: int) -> list[str]:
 
 
 def render_symbol(symbol: SymbolModel) -> list[str]:
-    pressure = ",".join(
-        f"{finding.code}:{finding.severity}" for finding in symbol.findings
-    )
-    header = (
+    pressure = ",".join(f"{finding.code}:{finding.severity}" for finding in symbol.findings)
+    parts = [
         f"  @symbol {symbol.kind} {quote(symbol.name)} line={symbol.line} "
         f"span={symbol.span} role={quote(symbol.role)} owns={quote(symbol.owns)}"
-    )
-    lines = [header]
+    ]
     if symbol.concepts:
-        lines.append(f"    concepts: {', '.join(symbol.concepts)}")
+        parts.append(f"concepts={quote(','.join(symbol.concepts))}")
     if symbol.calls:
-        lines.append(f"    calls: {', '.join(symbol.calls)}")
+        parts.append(f"calls={quote(','.join(symbol.calls))}")
     if symbol.branches:
-        lines.append(f"    branches={symbol.branches}")
+        parts.append(f"branches={symbol.branches}")
     if pressure:
-        lines.append(f"    pressure: {pressure}")
+        parts.append(f"pressure={quote(pressure)}")
     hint = symbol_refactor_hint(symbol)
     if hint is not None:
         smells = ", ".join(hint["guide_smells"])
         moves = "; ".join(hint["candidate_moves"][:3])
-        lines.append(
-            f"    guide: pressure={quote(hint['pressure'])} smells={quote(smells)} moves={quote(moves)}"
-        )
-    return lines
+        guide = f"pressure={hint['pressure']} smells={smells} moves={moves}"
+        parts.append(f"guide={quote(guide)}")
+    return [" ".join(parts)]
 
 
 def symbol_refactor_hint(symbol: SymbolModel) -> dict[str, Any] | None:
@@ -910,17 +905,23 @@ def render_refactor_moves(moves: list[dict[str, Any]]) -> list[str]:
         return lines
     for move in moves:
         lines.append(
-            f"  pressure={quote(str(move['pressure']))} count={move['count']} friction={quote(str(move['friction']))}"
+            f"  pressure={quote(str(move['pressure']))} count={move['count']} "
+            f"friction={quote(str(move['friction']))} "
+            f"guide_smells={quote(', '.join(move['guide_smells']))} "
+            f"candidate_moves={quote('; '.join(move['candidate_moves']))} "
+            f"guardrail={quote(str(move['guardrail']))} "
+            f"sources={quote(', '.join(move['sources']))}"
         )
-        lines.append(f"    guide_smells: {', '.join(move['guide_smells'])}")
-        lines.append(f"    candidate_moves: {'; '.join(move['candidate_moves'])}")
-        lines.append(f"    guardrail: {quote(str(move['guardrail']))}")
-        lines.append(f"    sources: {', '.join(move['sources'])}")
     return lines
 
 
 def render_questions() -> list[str]:
     return [
+        "@remodel_passes",
+        '  pass=1 source="code+tests" goal="model current ownership and behavior"',
+        '  pass=2 source="human-feedback" goal="treat explicit maintainer feedback as evidence"',
+        '  pass=3 source="static-leads" goal="use analyzer output only as weak supporting leads"',
+        '  pass=4 source="after-rewrite" goal="prove pressure was removed without losing behavior"',
         "@remodel_questions",
         '  - "Which guide smell is the closest analogy, and where does the local code disagree with that analogy?"',
         '  - "Which symbols own only delegation, and can the caller or callee own that directly?"',

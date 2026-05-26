@@ -44,7 +44,10 @@ agent to:
 - use current primary sources when language, framework, security, performance,
   protocol, or field-specific idioms matter
 - write manual `@context`, `@module`, `@flow`, `@decision`,
-  `@rewrite_pressure`, `@refactor_moves`, and `@after_remodel` entries
+  `@feedback`, `@rewrite_pressure`, `@refactor_moves`, `@remodel_passes`, and
+  `@after_remodel` entries
+- run multiple modeling passes, using explicit maintainer feedback as evidence
+  and static analyzer output only as a secondary check
 - preserve useful abstraction while removing unowned indirection, additive
   branch growth, wrong placement, silent failure, and squeezed files
 
@@ -67,6 +70,10 @@ python3 skills/llm-code-auditor/scripts/code_remodel.py --json <path>
 The remodel output is a custom post-code markup. It represents modules, symbols, ownership, calls, repeated concepts, unowned forwarders, branch hubs, generic boundaries, silent failure boundaries, wrong placement, guide-backed refactor move candidates, and additive drift. Its purpose is not to perfectly model program logic; it makes structural problems visible so the agent can decide how to reshape the code.
 
 Abstraction is treated as neutral. A one-use helper, class, or service can be the right code when it names a phase, protects a boundary, or makes an invariant readable. The remodel is meant to expose unowned indirection, redundant one-time methods, squeezed files, and code that keeps growing through branches and wrappers instead of being reconnected.
+
+Version 3 of the markup is compact by default: it keeps behavior, owner,
+pressure, move, guardrail, feedback, and proof information in short named
+attributes so an agent can reread the whole model before editing.
 
 The remodel language is calibrated against Fowler and Refactoring Guru references. It maps structural pressure to move families such as Extract Function, Inline Function, Move Function, Split Phase, Decompose Conditional, and Introduce Parameter Object while preserving the guardrail that smells are leads, not proof.
 
@@ -91,8 +98,9 @@ python3 skills/llm-code-auditor/scripts/llm_code_smell_scan.py --min-severity me
 ```
 
 Use the scanner for concrete evidence under a remodel or for regression checks.
-It is intentionally not the main product: a finding is a lead, and missing a
-finding does not prove code is good.
+It is intentionally not the main product: a finding is a lead, missing a finding
+does not prove code is good, and explicit maintainer feedback can override the
+shape suggested by a static lead.
 
 Project-specific scanner configuration can be placed in `.llm-code-auditor.json`:
 

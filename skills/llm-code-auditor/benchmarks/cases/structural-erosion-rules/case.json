@@ -27,7 +27,7 @@
   "expected_remodel_markup": [
     "role=\"branch-hub\"",
     "pressure=\"branch-hub\"",
-    "guardrail: \"Do not split mechanically; first name the domain distinction or data shape.\""
+    "guardrail=\"Do not split mechanically; first name the domain distinction or data shape.\""
   ],
   "reference": {
     "path": "after_good",

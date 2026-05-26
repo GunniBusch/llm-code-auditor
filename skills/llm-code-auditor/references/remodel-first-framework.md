@@ -1,13 +1,18 @@
 # Remodel-First Agent Framework
 
 Use this framework when code quality is the actual task, not just one local
-warning. The LLM is the modeling tool: it should redraw the codebase in Code
-Remodel Markup, use that alternate view to see structural pressure, then rewrite
-source only after ownership and proof are clear.
+warning. The LLM is the modeling tool: it should redraw the codebase in compact
+Code Remodel Markup, use that alternate view to see structural pressure, then
+rewrite source only after ownership and proof are clear.
 
 The Python tools are support machinery. They can seed a model, catch benchmark
 regressions, or provide concrete evidence, but they are not the product and they
 are not the main reasoning path.
+
+Explicit human feedback is a secondary source of truth after source behavior and
+repo constraints. If a maintainer says a reference refactor is worse, an
+abstraction is useful, a file is misplaced, or a pattern is too verbose, model
+that feedback in the next pass instead of arguing from static findings.
 
 ## Research Calibration
 
@@ -52,20 +57,23 @@ for a reason.
    state models, command registries, route handlers, lifecycle hooks, and tests.
 3. **Research the specific idiom.** Check current primary sources for the
    language/framework/subtopic when local precedent is weak or high-stakes.
-4. **Write a manual remodel.** Model only the files, flows, decisions, and
+4. **Write a compact manual remodel.** Model only the files, flows, decisions, and
    symbols that explain the shape problem. Do not list every line.
-5. **Read the remodel as structure.** Look for too many
+5. **Run multiple modeling passes.** First model source and tests, then reconcile
+   explicit human feedback if present, then use static analyzer output only as a
+   weak check for missed pressure.
+6. **Read the remodel as structure.** Look for too many
    `unowned-forwarder`, `branch-hub`, `silent-boundary`, `generic-boundary`,
    `spread-concept`, and `module-friction` entries. The syntax should make the
    bad shape visible before an exact edit is chosen.
-6. **Name the intended ownership.** For each pressure point, state where the
+7. **Name the intended ownership.** For each pressure point, state where the
    responsibility should live and why the current location fights that shape.
-7. **Choose move families.** Pick Extract Function, Inline Function, Move
+8. **Choose move families.** Pick Extract Function, Inline Function, Move
    Function, Split Phase, Introduce Parameter Object, table-driven dispatch,
    state model, or direct deletion only after the guardrail is written.
-8. **Rewrite with proof.** Add or repair tests when behavior risk is meaningful.
+9. **Rewrite with proof.** Add or repair tests when behavior risk is meaningful.
    Use types, test output, or a precise manual trace as evidence.
-9. **Remodel the result.** The after-remodel should have fewer pressures, clearer
+10. **Remodel the result.** The after-remodel should have fewer pressures, clearer
    owners, preserved useful boundaries, and no new speculative machinery.
 
 ## Manual Remodel Contract
@@ -73,6 +81,8 @@ for a reason.
 A useful manual remodel is compact and opinionated. It should contain:
 
 - `@context` with behavior, invariants, constraints, and proof surface.
+- `@feedback` when a maintainer gave explicit critique, constraints, examples,
+  or preferences that should influence the rewrite.
 - `@module` entries with current ownership, intended ownership, misplaced
   responsibilities, and additive paths.
 - `@flow` entries for user-visible operations, with the overgrown step named.
@@ -82,10 +92,14 @@ A useful manual remodel is compact and opinionated. It should contain:
 - `@refactor_moves` with candidate moves, guardrails, and required proof.
 - `@after_remodel` after the rewrite, showing what pressure disappeared and
   what proof covers the result.
+- `@remodel_passes` showing source/test, human-feedback, static-lead, and
+  after-rewrite passes.
 
 It should not:
 
 - repeat scanner findings without adding ownership judgment
+- treat analyzer output as more authoritative than code behavior or maintainer
+  critique
 - model perfect program logic
 - copy source code from public projects or docs
 - turn every long function into helpers
@@ -106,6 +120,8 @@ It should not:
   generated structure.
 - Performance comes from the right data shape first, not from decorative caches,
   retries, pooling, or concurrency.
+- The remodel is short enough to reread in one pass while still naming behavior,
+  owners, pressure, move, guardrail, and proof.
 
 ## Bad Structure Signals
 
