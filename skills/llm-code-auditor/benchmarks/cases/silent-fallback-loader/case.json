@@ -34,6 +34,7 @@
     "tests": "tests",
     "max_high_findings": 0,
     "max_medium_findings": 0,
+    "max_source_lines": 25,
     "max_lens_pressure": 0.2,
     "max_remodel_friction": {
       "branch_hubs": 0,

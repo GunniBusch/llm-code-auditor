@@ -276,6 +276,7 @@ def quality_gate(
 ) -> bool:
     max_high = int(thresholds.get("max_high_findings", 0))
     max_medium = int(thresholds.get("max_medium_findings", 0))
+    max_source_lines = thresholds.get("max_source_lines")
     high_findings = run_scanner(source_dir, "high")
     medium_findings = run_scanner(source_dir, "medium")
     remodel_model = run_remodel(source_dir)
@@ -289,6 +290,12 @@ def quality_gate(
     if len(medium_findings) > max_medium:
         notes.append(f"{label} medium findings: {len(medium_findings)} > {max_medium}")
         ok = False
+    if max_source_lines is not None:
+        lines = source_line_count(source_dir)
+        allowed_lines = int(max_source_lines)
+        if lines > allowed_lines:
+            notes.append(f"{label} source lines: {lines} > {allowed_lines}")
+            ok = False
     max_lens_pressure = thresholds.get("max_lens_pressure")
     if max_lens_pressure is not None:
         highest_lens_pressure = max(lens_pressure(lens_model).values(), default=0.0)
@@ -313,6 +320,18 @@ def quality_gate(
         notes.append(f"{label} behavior tests failed")
         ok = False
     return ok
+
+
+def source_line_count(source_dir: Path) -> int:
+    total = 0
+    for path in source_dir.rglob("*.py"):
+        if "__pycache__" in path.parts:
+            continue
+        try:
+            total += len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+        except OSError:
+            continue
+    return total
 
 
 def lens_pressure(model: dict[str, object]) -> dict[str, float]:

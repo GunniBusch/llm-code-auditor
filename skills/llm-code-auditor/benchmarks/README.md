@@ -21,9 +21,10 @@ python3 scripts/quality_benchmark.py benchmarks --candidate-root /path/to/candid
 
 The candidate root should contain one subdirectory per case id. A passing
 candidate must pass the behavior tests and stay within the case's quality
-thresholds. Passing this benchmark does not prove production quality; it
-provides a stable tuning signal for prompts, remodel wording, skill wording, and
-supporting heuristics.
+thresholds, including source-size limits where the reference would otherwise
+become more verbose than the bad fixture. Passing this benchmark does not prove
+production quality; it provides a stable tuning signal for prompts, remodel
+wording, skill wording, and supporting heuristics.
 
 Run the quality lens on any individual case when tuning the higher-level agent frame:
 
@@ -50,4 +51,5 @@ project-specific identifiers.
 - Expected lens pressure: the quality lens maps bad code to the intended abstract pressure, such as economy, failure semantics, or change shape.
 - Behavior preservation: reference and candidate code pass hidden/varied tests, not just prompt examples.
 - Maintainability gate: reference and candidate code avoid unresolved high/medium findings and remodel pressure according to case thresholds.
+- Source-size gate: references and candidates stay compact enough for the task instead of replacing branchy code with a larger framework.
 - Tuneability: failures are reported per case so skill text, lens weights, and scanner heuristics can be adjusted without changing the benchmark goal.

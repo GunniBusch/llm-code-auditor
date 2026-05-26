@@ -17,6 +17,8 @@ The automated runner reports:
 - Expected lens pressure: bad fixture maps to the intended high-level quality frame.
 - Reference implementation gate: gold refactor passes behavior tests and scanner thresholds.
 - Candidate implementation gate: optional agent output passes the same tests and thresholds.
+- Source-size gate: reference and candidate code must stay compact enough for
+  the task when the case declares a line budget.
 
 Treat the score as a regression signal, not a complete proof. A prompt change that improves one case while weakening another should be studied before shipping.
 
@@ -34,6 +36,8 @@ Score each candidate from 0 to 2:
 - Source-backed idiom fit: uses current language, framework, field, and pattern guidance when local context is not enough.
 - Test value: tests assert behavior, not private generated structure.
 - Performance shape: chooses a better data structure or algorithm before adding machinery.
+- Compactness: the rewrite removes accidental complexity without turning a small
+  problem into a local framework.
 
 Suggested interpretation:
 
