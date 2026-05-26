@@ -34,6 +34,8 @@ def parse_bool(value, field):
 
 
 def parse_non_negative_int(value, field):
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be an integer")
     try:
         parsed = int(value)
     except (TypeError, ValueError) as error:
@@ -55,5 +57,5 @@ def parse_features(value):
     if isinstance(value, str):
         return [value]
     if isinstance(value, list) and all(isinstance(feature, str) for feature in value):
-        return value
+        return list(value)
     raise ValueError("features must be a string or list of strings")

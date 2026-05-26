@@ -8,7 +8,47 @@ Use this when a cleanup task asks for code that is readable, efficient, direct, 
 - Google code review standard: prefer improvements that clearly improve maintainability/readability/understandability over perfection-chasing. https://google.github.io/eng-practices/review/reviewer/standard.html
 - Martin Fowler: a code smell is a surface indication that often corresponds to a deeper system problem. https://martinfowler.com/bliki/CodeSmell.html
 - Refactoring catalog examples: Feature Envy suggests behavior may belong near the data it uses; duplicated code and long methods are refactoring signals, not automatic proof. https://refactoring.guru/smells/feature-envy
+- PEP 8: readability, project consistency, and local consistency matter more than mechanically applying a style rule. https://peps.python.org/pep-0008/
+- Google Python Style Guide: related classes and top-level functions can live together in one module; Python does not need one class per file. https://google.github.io/styleguide/pyguide.html
+- Rust API Guidelines: strong APIs are predictable, interoperable, type-safe, dependable, debuggable, and able to evolve. https://rust-lang.github.io/api-guidelines/checklist.html
+- Bugs in LLM Generated Code: recurring LLM bug patterns include prompt-biased code, missing corner cases, wrong input type, hallucinated object, wrong attribute, incomplete generation, and non-prompted behavior. https://arxiv.org/abs/2403.08937
+- Investigating The Smells of LLM Generated Code: scenario-based evaluation found LLM outputs can increase implementation and design smells, so cleanup has to measure maintainability, not only test pass rate. https://arxiv.org/abs/2510.03029
 - SlopCodeBench: repeated agent extension can increase verbosity and structural erosion even when checkpoint tests pass. Good cleanup must preserve the codebase's ability to absorb the next change. https://arxiv.org/abs/2603.24755
+- SpecBench: visible tests can reward benchmark gaming instead of the real specification; good references need hidden/varied behavior and manual quality review. https://arxiv.org/abs/2605.21384
+
+## Research Synthesis
+
+Good code is not "short code" or "abstract code." It is code whose behavior,
+ownership, and proof are easy to inspect. The sources above converge on these
+rules:
+
+- Design and behavior come before local style. A reference that passes tests but
+  makes the next change harder is not good.
+- Complexity is contextual. Long, branchy, duplicated, generic, or single-use
+  shapes are review leads, not automatic defects.
+- Abstraction earns its place by protecting a real boundary, naming a dense
+  phase, or giving an invariant one owner. Otherwise it is accidental machinery.
+- Consistency with the local project outranks generic taste.
+- Tests must fail for real behavior breaks and must not freeze private generated
+  structure.
+- LLM-specific review must check prompt overfit, missing edge cases, additive
+  branch growth, silent fallback, and invented structure.
+
+## Reference Fixture Standard
+
+An `after_good` fixture must be good by human review, not merely by the current
+automated gates:
+
+- It must preserve and extend behavior proof with varied edge cases when the bad
+  fixture hid an input-shape problem.
+- It must lower medium/high static findings, core remodel friction, and lens
+  pressure compared with its paired bad fixture.
+- It must not become larger, more abstract, or more indirect just to satisfy a
+  line-count or branch-count threshold.
+- Function-size thresholds should reject new hiding places, not force a clear
+  parser, validator, or command table into fragmented helper churn.
+- A remaining low scanner lead is acceptable only when the helper, type, or
+  boundary names a real phase, invariant, or data model visible in the task.
 
 ## What Excellent Human Code Optimizes For
 

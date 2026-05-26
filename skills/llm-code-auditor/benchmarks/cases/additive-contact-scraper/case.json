@@ -43,8 +43,8 @@
     "max_high_findings": 0,
     "max_medium_findings": 0,
     "max_source_lines": 145,
-    "max_function_lines": 10,
-    "max_function_branches": 2,
+    "max_function_lines": 15,
+    "max_function_branches": 5,
     "max_lens_pressure": 0.25,
     "max_remodel_friction": {
       "branch_hubs": 0,

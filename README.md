@@ -177,14 +177,18 @@ The validation runner checks:
 
 ## Marketplace Entry
 
-The verified Codex marketplace entry shape uses a local plugin path. In the marketplace repository, include this repository as a submodule at `plugins/llm-code-auditor` and keep the entry local:
+The plugin lives at the root of its own Git repository, so a Codex marketplace
+entry should use the Git-backed `url` source form. The OpenAI Codex plugin docs
+use `source=url` when the plugin is at the repository root and `git-subdir` only
+when it lives below a subdirectory:
 
 ```json
 {
   "name": "llm-code-auditor",
   "source": {
-    "source": "local",
-    "path": "./plugins/llm-code-auditor"
+    "source": "url",
+    "url": "https://github.com/GunniBusch/llm-code-auditor.git",
+    "ref": "main"
   },
   "policy": {
     "installation": "AVAILABLE",

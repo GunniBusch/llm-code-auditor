@@ -24,6 +24,10 @@ class ConfigLoaderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_config('{"retries": -1}')
 
+    def test_rejects_boolean_integer_fields(self):
+        with self.assertRaises(ValueError):
+            load_config('{"retries": true}')
+
     def test_rejects_bad_feature_shape(self):
         with self.assertRaises(ValueError):
             load_config('{"features": [1, "audit"]}')

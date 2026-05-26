@@ -14,7 +14,11 @@ def load_invoice(raw):
     total_cents = invoice.get("total_cents")
     if not isinstance(invoice_id, str) or not invoice_id:
         raise ValueError("invoice id is required")
-    if not isinstance(total_cents, int) or total_cents < 0:
+    if not is_total_cents(total_cents):
         raise ValueError("invoice total must be a non-negative integer")
 
     return {"id": invoice_id, "total_cents": total_cents}
+
+
+def is_total_cents(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0

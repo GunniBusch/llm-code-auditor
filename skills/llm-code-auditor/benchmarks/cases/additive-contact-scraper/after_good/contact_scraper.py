@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import re
 
 
@@ -16,55 +16,46 @@ class Contact:
     hours: str = ""
 
 
-@dataclass
-class ContactParser:
-    contacts: list[Contact] = field(default_factory=list)
-    current: Contact | None = None
-    collecting_hours: bool = False
-    hours: list[str] = field(default_factory=list)
-
-    def parse(self, lines):
-        for line in clean_contact_lines(lines):
-            CONTACT_EVENTS[classify_contact_line(line)](self, line)
-        self.finish_current()
-        return self.contacts
-
-    def finish_current(self, _line=""):
-        if self.current is not None:
-            if self.hours:
-                self.current.hours = " ".join(self.hours)
-            self.contacts.append(self.current)
-        self.current = None
-        self.collecting_hours = False
-        self.hours = []
-
-    def start_contact(self, line):
-        self.finish_current()
-        self.current = Contact(name=line)
-
-    def start_hours(self, _line):
-        self.collecting_hours = True
-        self.hours = []
-
-    def end_hours(self, _line):
-        if self.current is not None and self.hours:
-            self.current.hours = " ".join(self.hours)
-        self.collecting_hours = False
-        self.hours = []
-
-    def set_field(self, field_name, line):
-        if self.current is not None:
-            setattr(self.current, field_name, line)
-
-    def add_detail(self, line):
-        if self.current is not None and self.collecting_hours:
-            self.hours.append(line)
-        elif self.current is not None and not self.current.role:
-            self.current.role = line
-
-
 def scrape_contact_lines(lines):
-    return "\n\n".join(render_contact(contact) for contact in ContactParser().parse(lines))
+    return "\n\n".join(render_contact(contact) for contact in parse_contacts(lines))
+
+
+def parse_contacts(lines):
+    contacts = []
+    current, hours, collecting_hours = None, [], False
+
+    for line in clean_contact_lines(lines):
+        if is_person_name(line):
+            current, hours, collecting_hours = finish_contact(contacts, current, hours)
+            current = Contact(name=line)
+        elif current is not None:
+            current, hours, collecting_hours = apply_contact_line(
+                current, line, hours, collecting_hours
+            )
+
+    finish_contact(contacts, current, hours)
+    return contacts
+
+
+def finish_contact(contacts, contact, hours):
+    if contact is not None:
+        if hours:
+            contact.hours = " ".join(hours)
+        contacts.append(contact)
+    return None, [], False
+
+
+def apply_contact_line(contact, line, hours, collecting_hours):
+    lowered = line.lower()
+    if lowered == "more information":
+        return contact, [], True
+    if lowered == "less information":
+        return contact, hours, False
+    if collecting_hours:
+        hours.append(line)
+    else:
+        apply_contact_detail(contact, line)
+    return contact, hours, collecting_hours
 
 
 def clean_contact_lines(lines):
@@ -84,14 +75,22 @@ def is_noise_line(line):
     )
 
 
-def classify_contact_line(line):
-    for kind, matches in CONTACT_LINE_RULES:
-        if matches(line):
-            return kind
-    return "detail"
+def apply_contact_detail(contact, line):
+    if line in ROLE_LINES and not contact.role:
+        contact.role = line
+    elif is_email(line):
+        contact.email = line
+    elif is_phone(line) and not contact.phone:
+        contact.phone = line
+    elif "Office" in line:
+        contact.location = line
+    elif not contact.role:
+        contact.role = line
 
 
 def is_person_name(line):
+    if line in ROLE_LINES or "Office" in line:
+        return False
     return bool(re.match(r"^[A-Z][a-z]+(\s+[A-Z][a-z]+)+$", line))
 
 
@@ -114,26 +113,4 @@ def render_contact(contact):
         ("Location", contact.location),
         ("Hours", contact.hours),
     ]
-    return "\n".join(f"{label}: {value}" for label, value in fields if value).strip()
-
-
-CONTACT_EVENTS = {
-    "name": ContactParser.start_contact,
-    "hours-start": ContactParser.start_hours,
-    "hours-end": ContactParser.end_hours,
-    "role": lambda parser, line: parser.set_field("role", line),
-    "email": lambda parser, line: parser.set_field("email", line),
-    "phone": lambda parser, line: parser.set_field("phone", line),
-    "location": lambda parser, line: parser.set_field("location", line),
-    "detail": ContactParser.add_detail,
-}
-
-CONTACT_LINE_RULES = (
-    ("hours-start", lambda line: line.lower() == "more information"),
-    ("hours-end", lambda line: line.lower() == "less information"),
-    ("role", lambda line: line in ROLE_LINES),
-    ("location", lambda line: "Office" in line),
-    ("name", is_person_name),
-    ("email", is_email),
-    ("phone", is_phone),
-)
+    return "\n".join(f"{label}: {value}" for label, value in fields if value)

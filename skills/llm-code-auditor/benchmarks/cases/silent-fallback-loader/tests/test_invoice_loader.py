@@ -18,6 +18,10 @@ class InvoiceLoaderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_invoice('{"id": "inv_123"}')
 
+    def test_rejects_boolean_total(self):
+        with self.assertRaises(ValueError):
+            load_invoice('{"id": "inv_123", "total_cents": true}')
+
 
 if __name__ == "__main__":
     unittest.main()
