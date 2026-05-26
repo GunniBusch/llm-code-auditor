@@ -277,6 +277,8 @@ def quality_gate(
     max_high = int(thresholds.get("max_high_findings", 0))
     max_medium = int(thresholds.get("max_medium_findings", 0))
     max_source_lines = thresholds.get("max_source_lines")
+    max_function_lines = thresholds.get("max_function_lines")
+    max_function_branches = thresholds.get("max_function_branches")
     high_findings = run_scanner(source_dir, "high")
     medium_findings = run_scanner(source_dir, "medium")
     remodel_model = run_remodel(source_dir)
@@ -295,6 +297,21 @@ def quality_gate(
         allowed_lines = int(max_source_lines)
         if lines > allowed_lines:
             notes.append(f"{label} source lines: {lines} > {allowed_lines}")
+            ok = False
+    metrics = quality_metrics(lens_model)
+    if max_function_lines is not None:
+        allowed_lines = int(max_function_lines)
+        if metrics["max_function_lines"] > allowed_lines:
+            notes.append(
+                f"{label} max function lines: {metrics['max_function_lines']} > {allowed_lines}"
+            )
+            ok = False
+    if max_function_branches is not None:
+        allowed_branches = int(max_function_branches)
+        if metrics["max_function_branches"] > allowed_branches:
+            notes.append(
+                f"{label} max function branches: {metrics['max_function_branches']} > {allowed_branches}"
+            )
             ok = False
     max_lens_pressure = thresholds.get("max_lens_pressure")
     if max_lens_pressure is not None:
@@ -332,6 +349,16 @@ def source_line_count(source_dir: Path) -> int:
         except OSError:
             continue
     return total
+
+
+def quality_metrics(model: dict[str, object]) -> dict[str, int]:
+    raw_metrics = model.get("metrics")
+    if not isinstance(raw_metrics, dict):
+        return {"max_function_lines": 0, "max_function_branches": 0}
+    return {
+        "max_function_lines": int(raw_metrics.get("max_function_lines", 0)),
+        "max_function_branches": int(raw_metrics.get("max_function_branches", 0)),
+    }
 
 
 def lens_pressure(model: dict[str, object]) -> dict[str, float]:

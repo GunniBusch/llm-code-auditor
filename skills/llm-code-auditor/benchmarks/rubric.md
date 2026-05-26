@@ -19,6 +19,8 @@ The automated runner reports:
 - Candidate implementation gate: optional agent output passes the same tests and thresholds.
 - Source-size gate: reference and candidate code must stay compact enough for
   the task when the case declares a line budget.
+- Function-shape gate: reference and candidate code must keep individual
+  functions short and low-branch when the case declares function budgets.
 
 Treat the score as a regression signal, not a complete proof. A prompt change that improves one case while weakening another should be studied before shipping.
 
@@ -28,6 +30,8 @@ Score each candidate from 0 to 2:
 
 - Task fit: solves the real behavior, including varied inputs and failure cases.
 - Locality: keeps data, invariant, and behavior close enough to inspect.
+- Function shape: no single function becomes the new hiding place for many
+  decisions or phases.
 - Abstraction judgment: removes unearned layers while preserving real boundaries.
 - Adaptive reuse: uses existing repo concepts instead of inventing parallel helpers.
 - Remodel quality: the agent-authored model clearly separates current ownership,
