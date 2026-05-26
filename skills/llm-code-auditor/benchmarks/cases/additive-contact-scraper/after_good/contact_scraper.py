@@ -58,31 +58,16 @@ def is_noise_line(line):
 def parse_contacts(lines):
     state = ContactParseState()
     for line in lines:
-        apply_contact_line(state, classify_contact_line(line), line)
+        CONTACT_LINE_HANDLERS[classify_contact_line(line)](state, line)
     state.finish_current()
     return state.contacts
 
 
 def classify_contact_line(line):
-    if line.lower() == "more information":
-        return "hours-start"
-    if line.lower() == "less information":
-        return "hours-end"
-    if line in ROLE_LINES:
-        return "role"
-    if "Office" in line:
-        return "location"
-    if is_person_name(line):
-        return "name"
-    if is_email(line):
-        return "email"
-    if is_phone(line):
-        return "phone"
+    for kind, matches in CONTACT_LINE_RULES:
+        if matches(line):
+            return kind
     return "detail"
-
-
-def apply_contact_line(state, kind, line):
-    CONTACT_LINE_HANDLERS[kind](state, line)
 
 
 def start_contact(state, line):
@@ -139,6 +124,17 @@ CONTACT_LINE_HANDLERS = {
     "location": set_location,
     "detail": add_detail,
 }
+
+
+CONTACT_LINE_RULES = (
+    ("hours-start", lambda line: line.lower() == "more information"),
+    ("hours-end", lambda line: line.lower() == "less information"),
+    ("role", lambda line: line in ROLE_LINES),
+    ("location", lambda line: "Office" in line),
+    ("name", lambda line: is_person_name(line)),
+    ("email", lambda line: is_email(line)),
+    ("phone", lambda line: is_phone(line)),
+)
 
 
 def is_person_name(line):
