@@ -38,7 +38,9 @@ deterministic. The remodel markup gate checks that the language exposes the
 structural pressure in its own syntax; the scanner and lens are supporting
 signals. Each case can declare expected remodel friction, expected remodel
 markup terms, expected lens pressure for bad code, and maximum lens pressure for
-the reference refactor.
+the reference refactor. The runner also compares each reference against its own
+bad fixture and fails it when medium/high findings, core remodel friction, or
+maximum lens pressure do not materially improve.
 
 Some cases are calibrated from public-code structure studies. Their fixtures are
 original neutral code: no copied source, no original domain names, and no
@@ -54,4 +56,5 @@ project-specific identifiers.
 - Maintainability gate: reference and candidate code avoid unresolved high/medium findings and remodel pressure according to case thresholds.
 - Source-size gate: references and candidates stay compact enough for the task instead of replacing branchy code with a larger framework.
 - Function-shape gate: references and candidates keep each function short and low-branch enough to inspect locally.
+- Relative-improvement gate: each reference must improve over its own bad fixture on medium/high findings, core remodel friction, and maximum lens pressure.
 - Tuneability: failures are reported per case so skill text, lens weights, and scanner heuristics can be adjusted without changing the benchmark goal.

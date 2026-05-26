@@ -21,6 +21,9 @@ The automated runner reports:
   the task when the case declares a line budget.
 - Function-shape gate: reference and candidate code must keep individual
   functions short and low-branch when the case declares function budgets.
+- Reference-improvement gate: each reference must improve over its paired bad
+  fixture on medium/high findings, core remodel friction, and maximum lens
+  pressure.
 
 Treat the score as a regression signal, not a complete proof. A prompt change that improves one case while weakening another should be studied before shipping.
 

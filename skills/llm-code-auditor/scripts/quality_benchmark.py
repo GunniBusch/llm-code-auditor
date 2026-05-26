@@ -34,6 +34,7 @@ class CaseResult:
     expected_markup_ok: bool
     expected_lenses_ok: bool
     reference_ok: bool
+    reference_improvement_ok: bool
     candidate_ok: bool | None
     score: int
     max_score: int
@@ -68,6 +69,7 @@ def main() -> int:
         and result.expected_markup_ok
         and result.expected_lenses_ok
         and result.reference_ok
+        and result.reference_improvement_ok
         for result in results
     ):
         return 1
@@ -85,6 +87,7 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
     before_findings = run_scanner(case_dir / case["before"], "low")
     before_remodel = run_remodel(case_dir / case["before"])
     before_markup = run_remodel_markup(case_dir / case["before"])
+    before_lens = run_quality_lens(case_dir / case["before"])
     expected_findings_ok = expected_findings_present(case["expected_findings"], before_findings, notes)
     expected_remodel_ok = expected_remodel_present(
         case.get("expected_remodel_friction", []),
@@ -98,13 +101,21 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
     )
     expected_lenses_ok = expected_lenses_present(
         case.get("expected_lenses", []),
-        run_quality_lens(case_dir / case["before"]),
+        before_lens,
         notes,
     )
 
     reference = case["reference"]
     reference_dir = case_dir / reference["path"]
     reference_ok = quality_gate(reference_dir, case_dir / reference["tests"], reference, notes, "reference")
+    reference_improvement_ok = reference_improvement_gate(
+        case_dir / case["before"],
+        reference_dir,
+        before_remodel,
+        before_lens,
+        reference,
+        notes,
+    )
 
     candidate_ok = None
     if candidate_root is not None:
@@ -121,8 +132,9 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
         + int(expected_markup_ok)
         + int(expected_lenses_ok)
         + int(reference_ok)
+        + int(reference_improvement_ok)
     )
-    max_score = 5
+    max_score = 6
     if candidate_ok is not None:
         score += int(candidate_ok)
         max_score += 1
@@ -134,6 +146,7 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
         expected_markup_ok=expected_markup_ok,
         expected_lenses_ok=expected_lenses_ok,
         reference_ok=reference_ok,
+        reference_improvement_ok=reference_improvement_ok,
         candidate_ok=candidate_ok,
         score=score,
         max_score=max_score,
@@ -339,6 +352,61 @@ def quality_gate(
     return ok
 
 
+def reference_improvement_gate(
+    before_dir: Path,
+    reference_dir: Path,
+    before_remodel: dict[str, object],
+    before_lens: dict[str, object],
+    thresholds: dict[str, object],
+    notes: list[str],
+) -> bool:
+    ok = True
+
+    before_medium = len(run_scanner(before_dir, "medium"))
+    reference_medium = len(run_scanner(reference_dir, "medium"))
+    if reference_medium >= before_medium:
+        notes.append(
+            f"reference medium+ findings did not improve: {reference_medium} >= {before_medium}"
+        )
+        ok = False
+
+    before_pressure = max(lens_pressure(before_lens).values(), default=0.0)
+    reference_pressure = max(
+        lens_pressure(run_quality_lens(reference_dir)).values(),
+        default=0.0,
+    )
+    min_reduction = float(thresholds.get("min_lens_pressure_reduction", 0.05))
+    if reference_pressure > before_pressure - min_reduction:
+        notes.append(
+            f"reference lens pressure did not improve enough: {reference_pressure:.2f} > {before_pressure - min_reduction:.2f}"
+        )
+        ok = False
+
+    before_friction = core_friction_count(before_remodel)
+    reference_friction = core_friction_count(run_remodel(reference_dir))
+    if reference_friction >= before_friction:
+        notes.append(
+            f"reference core remodel friction did not improve: {reference_friction} >= {before_friction}"
+        )
+        ok = False
+
+    return ok
+
+
+def core_friction_count(model: dict[str, object]) -> int:
+    counts = friction_counts(model)
+    return sum(
+        counts.get(kind, 0)
+        for kind in (
+            "branch_hubs",
+            "empty_boundaries",
+            "generic_boundaries",
+            "repeated_names",
+            "silent_boundaries",
+        )
+    )
+
+
 def source_line_count(source_dir: Path) -> int:
     total = 0
     for path in source_dir.rglob("*.py"):
@@ -416,11 +484,13 @@ def print_summary(results: list[CaseResult]) -> None:
     markup_ok = all(result.expected_markup_ok for result in results)
     lens_ok = all(result.expected_lenses_ok for result in results)
     reference_ok = all(result.reference_ok for result in results)
+    improvement_ok = all(result.reference_improvement_ok for result in results)
     print(f"Expected smell coverage: {'PASS' if smell_ok else 'FAIL'}")
     print(f"Expected remodel friction: {'PASS' if remodel_ok else 'FAIL'}")
     print(f"Expected remodel markup: {'PASS' if markup_ok else 'FAIL'}")
     print(f"Expected lens pressure: {'PASS' if lens_ok else 'FAIL'}")
     print(f"Reference implementations: {'PASS' if reference_ok else 'FAIL'}")
+    print(f"Reference improvement: {'PASS' if improvement_ok else 'FAIL'}")
 
     candidate_results = [result for result in results if result.candidate_ok is not None]
     if candidate_results:
@@ -435,6 +505,7 @@ def print_summary(results: list[CaseResult]) -> None:
             and result.expected_markup_ok
             and result.expected_lenses_ok
             and result.reference_ok
+            and result.reference_improvement_ok
             else "FAIL"
         )
         print(f"- {result.name}: {status} ({result.score}/{result.max_score})")
@@ -450,6 +521,7 @@ def result_to_json(result: CaseResult) -> dict[str, object]:
         "expected_markup_ok": result.expected_markup_ok,
         "expected_lenses_ok": result.expected_lenses_ok,
         "reference_ok": result.reference_ok,
+        "reference_improvement_ok": result.reference_improvement_ok,
         "candidate_ok": result.candidate_ok,
         "score": result.score,
         "max_score": result.max_score,

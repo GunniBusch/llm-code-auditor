@@ -1,6 +1,6 @@
 {
   "name": "llm-code-auditor",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "Refactor AI-shaped code into compact, readable, efficient, task-fit code with senior maintainer judgment.",
   "author": {
     "name": "Leon Adomaitis",
