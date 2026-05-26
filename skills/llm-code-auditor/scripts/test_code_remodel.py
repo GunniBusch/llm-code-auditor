@@ -62,9 +62,13 @@ def load_config(data):
         )
 
         output = run_remodel(root)
-        assert "@remodel version=3 format=compact" in output
+        assert "@remodel version=4 dialect=cmml strict=true" in output
+        assert "@schema pressure=[" in output
+        assert "@file id=F001" in output
+        assert "@sym id=F001.S001" in output
+        assert "metrics={span:" in output
         assert "human feedback outranks static leads" in output
-        assert "@refactor_guide" in output
+        assert "@guide_set" in output
         assert "Refactoring Guru" in output
         assert "Martin Fowler" in output
         assert "@concept_map" in output
@@ -72,13 +76,14 @@ def load_config(data):
         assert "unowned-forwarder" in output
         assert "silent-boundary" in output
         assert "branch-hub" in output
-        assert "@refactor_moves" in output
-        assert "Extract Function" in output
-        assert "Inline Function/Method" in output
+        assert "@pressure kind=branch-hub" in output
+        assert "@move_rules" in output
+        assert "ExtractFunction" in output
+        assert "InlineFunctionMethod" in output
         assert "@remodel_passes" in output
-        assert 'source="human-feedback"' in output
-        assert 'source="static-leads"' in output
-        assert "@remodel_questions" in output
+        assert '@pass n=2 source="human-feedback"' in output
+        assert '@pass n=3 source="static-leads"' in output
+        assert "@query_set" in output
 
 
 def test_remodel_json_keeps_domain_named_boundaries_from_being_generic() -> None:

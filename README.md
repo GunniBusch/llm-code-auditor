@@ -55,6 +55,26 @@ The scripts are support machinery. They make tuning repeatable and can seed a
 model, but the intended interface is the remodel the agent writes after reading
 the code.
 
+## Easy Entry Prompts
+
+Use one of these prompts to enter the model-first workflow without knowing the
+markup language:
+
+```text
+Run a remodel-first code quality pass: model behavior, ownership, and maintainer
+feedback first in strict CMML, treat static findings as secondary, then make
+compact behavior-preserving improvements with proof.
+```
+
+```text
+Use LLM Code Auditor in review-only mode. Do not edit yet. Build a strict CMML
+remodel of the relevant files and flows, then report the smallest set of
+high-confidence cleanup findings.
+```
+
+More entry prompts are in
+`skills/llm-code-auditor/references/easy-entry-prompts.md`.
+
 ## Code Remodel
 
 Use Code Remodel when exact findings are too narrow and the agent needs to see
@@ -67,13 +87,20 @@ python3 skills/llm-code-auditor/scripts/code_remodel.py <path>
 python3 skills/llm-code-auditor/scripts/code_remodel.py --json <path>
 ```
 
-The remodel output is a custom post-code markup. It represents modules, symbols, ownership, calls, repeated concepts, unowned forwarders, branch hubs, generic boundaries, silent failure boundaries, wrong placement, guide-backed refactor move candidates, and additive drift. Its purpose is not to perfectly model program logic; it makes structural problems visible so the agent can decide how to reshape the code.
+The remodel output is a custom post-code meta language. Version 4 uses strict
+CMML-style fact lines such as `@file`, `@sym`, `@pressure`, `@move_rule`, and
+`@pass`. It represents symbols, ownership, calls, metrics, repeated concepts,
+unowned forwarders, branch hubs, generic boundaries, silent failure boundaries,
+wrong placement, guide-backed refactor move candidates, and additive drift. Its
+purpose is not to perfectly model program logic; it makes structural problems
+visible so the agent can decide how to reshape the code.
 
 Abstraction is treated as neutral. A one-use helper, class, or service can be the right code when it names a phase, protects a boundary, or makes an invariant readable. The remodel is meant to expose unowned indirection, redundant one-time methods, squeezed files, and code that keeps growing through branches and wrappers instead of being reconnected.
 
-Version 3 of the markup is compact by default: it keeps behavior, owner,
-pressure, move, guardrail, feedback, and proof information in short named
-attributes so an agent can reread the whole model before editing.
+The strict dialect keeps behavior, owner, pressure, move, guardrail, feedback,
+and proof information in short typed attributes so an agent can reread the whole
+model before editing. Free prose belongs in quoted fields only; structure should
+come from the tags and controlled vocabulary.
 
 The remodel language is calibrated against Fowler and Refactoring Guru references. It maps structural pressure to move families such as Extract Function, Inline Function, Move Function, Split Phase, Decompose Conditional, and Introduce Parameter Object while preserving the guardrail that smells are leads, not proof.
 

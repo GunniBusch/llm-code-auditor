@@ -34,13 +34,14 @@ python3 scripts/quality_lens.py benchmarks/cases/pass-through-service-stack/befo
 ```
 
 The benchmark gates still use concrete thresholds so regressions are
-deterministic. The remodel markup gate checks that the language exposes the
-structural pressure in its own syntax; the scanner and lens are supporting
-signals. Each case can declare expected remodel friction, expected remodel
-markup terms, expected lens pressure for bad code, and maximum lens pressure for
-the reference refactor. The runner also compares each reference against its own
-bad fixture and fails it when medium/high findings, core remodel friction, or
-maximum lens pressure do not materially improve.
+deterministic. The remodel markup gate checks that strict CMML exposes the
+structural pressure in its own syntax through tags such as `@sym`, `@pressure`,
+and `@move_rule`; the scanner and lens are supporting signals. Each case can
+declare expected remodel friction, expected remodel markup terms, expected lens
+pressure for bad code, and maximum lens pressure for the reference refactor. The
+runner also compares each reference against its own bad fixture and fails it
+when medium/high findings, core remodel friction, or maximum lens pressure do
+not materially improve.
 
 Some cases are calibrated from public-code structure studies. Their fixtures are
 original neutral code: no copied source, no original domain names, and no

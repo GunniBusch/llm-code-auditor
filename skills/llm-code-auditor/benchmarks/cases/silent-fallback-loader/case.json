@@ -25,9 +25,9 @@
     }
   ],
   "expected_remodel_markup": [
-    "role=\"silent-boundary\"",
-    "pressure=\"silent-boundary\"",
-    "guide_smells=\"Error Code, Hidden Failure Policy\""
+    "role=silent-boundary",
+    "@pressure kind=silent-boundary",
+    "smells=[ErrorCode,HiddenFailurePolicy]"
   ],
   "reference": {
     "path": "after_good",

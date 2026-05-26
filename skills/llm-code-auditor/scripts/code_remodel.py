@@ -735,55 +735,56 @@ def symbol_to_json(symbol: SymbolModel) -> dict[str, Any]:
 
 
 def render_markup(model: dict[str, Any], max_symbols: int) -> str:
+    file_ids = file_id_map(model["files"])
+    visible_symbols = model["symbols"][:max_symbols]
     lines = [
-        "@remodel version=3 format=compact",
-        '  purpose="post-code structural model for refactoring"',
-        '  authority="manual multi-pass model; human feedback outranks static leads"',
-        f"  files={len(model['files'])}",
+        "@remodel version=4 dialect=cmml strict=true",
+        '@meta purpose="post-code structural fact graph for refactoring" authority="manual multi-pass model; human feedback outranks static leads" files='
+        f"{len(model['files'])}",
+        "@schema pressure=[unowned-forwarder,branch-hub,silent-boundary,generic-boundary,repeated-operation,spread-concept,module-friction] move=[InlineFunction,InlineFunctionMethod,RemoveMiddleMan,InlineClass,MoveFunction,MoveStatementsToCallers,SplitPhase,DecomposeConditional,ReplaceConditionalWithPolymorphism,ReplaceFunctionWithCommand,IntroduceParameterObject,TableDispatch,StateModel,KeepBoundary] proof=[tests,types,trace]",
     ]
     lines.extend(render_refactor_guide(model["guide_sources"]))
     lines.extend(render_lens(model["lens"]))
     lines.extend(render_concept_map(model["concept_map"]))
-    lines.extend(render_modules(model, max_symbols))
-    lines.extend(render_friction(model["friction"]))
+    lines.extend(render_files(model, visible_symbols, file_ids))
+    lines.extend(render_pressure(model["friction"]))
     lines.extend(render_refactor_moves(model["refactor_moves"]))
     lines.extend(render_questions())
     return "\n".join(lines)
 
 
 def render_refactor_guide(sources: list[dict[str, str]]) -> list[str]:
-    source_refs = "; ".join(
-        f"{source['name']} <{source['url']}>" for source in sources
+    lines = ["@guide_set"]
+    for source in sources:
+        lines.append(
+            f"@guide id={pascal_atom(source['id'])} name={quote(source['name'])} "
+            f"url={quote(source['url'])} use={quote(source['use'])}"
+        )
+    lines.append(
+        '@guide_principle text="A smell is a lead. Prove the deeper structural problem before editing."'
     )
-    return [
-        "@refactor_guide",
-        f"  sources={quote(source_refs)}",
-        '  principle="A smell is a lead. Prove the deeper structural problem before editing."',
-    ]
+    return lines
 
 
 def render_lens(lens: dict[str, Any]) -> list[str]:
     lines = [
-        "@lens",
-        f"  overall={quote(str(lens['overall_pressure']))}",
-        f"  primary={quote(str(lens['primary_frame']))}",
+        f"@lens id=quality overall={quote(str(lens['overall_pressure']))} primary={quote(str(lens['primary_frame']))}",
     ]
     active_lenses = [
         item for item in lens["lenses"] if isinstance(item, dict) and item["pressure"] > 0
     ]
     if active_lenses:
-        pressure = " ".join(
-            f"{item['id']}={item['label']}({item['pressure']:.2f})"
+        lines.extend(
+            f"@lens_pressure id={atom(str(item['id']))} label={quote(str(item['label']))} score={item['pressure']:.2f}"
             for item in active_lenses
         )
-        lines.append(f"  pressure: {pressure}")
     protocol = lens["agent_protocol"]
     lines.append(
-        "  protocol "
+        "@protocol "
         f"mode={quote(protocol['mode'])} "
-        f"inspect={quote(' | '.join(protocol['inspect']))} "
-        f"move={quote(' | '.join(protocol['move']))} "
-        f"avoid={quote(' | '.join(protocol['avoid']))}"
+        f"inspect={quoted_list(protocol['inspect'])} "
+        f"move={quoted_list(protocol['move'])} "
+        f"avoid={quoted_list(protocol['avoid'])}"
     )
     return lines
 
@@ -791,64 +792,88 @@ def render_lens(lens: dict[str, Any]) -> list[str]:
 def render_concept_map(concepts: list[dict[str, Any]]) -> list[str]:
     lines = ["@concept_map"]
     if not concepts:
-        lines.append("  none")
+        lines.append("@concept none=true")
         return lines
-    for concept in concepts[:12]:
+    for index, concept in enumerate(concepts[:12], start=1):
         owners = concept.get("owner_candidates", [])
         if isinstance(owners, list) and owners:
-            owner_names = ", ".join(
+            owner_names = [
                 str(owner.get("name"))
                 for owner in owners
                 if isinstance(owner, dict) and owner.get("name")
-            )
+            ]
         else:
-            owner_names = "none"
+            owner_names = []
         lines.append(
-            f"  concept={quote(str(concept['concept']))} count={concept['count']} "
-            f"owners={quote(owner_names)} question={quote(str(concept['question']))}"
+            f"@concept id=C{index:03d} name={quote(str(concept['concept']))} count={concept['count']} "
+            f"owners={quoted_list(owner_names)} question={quote(str(concept['question']))}"
         )
     return lines
 
 
-def render_modules(model: dict[str, Any], max_symbols: int) -> list[str]:
+def render_files(
+    model: dict[str, Any],
+    visible_symbols: list[SymbolModel],
+    file_ids: dict[Path, str],
+) -> list[str]:
     symbols_by_path: dict[Path, list[SymbolModel]] = defaultdict(list)
-    for symbol in model["symbols"][:max_symbols]:
+    for symbol in visible_symbols:
         symbols_by_path[symbol.path].append(symbol)
 
     lines: list[str] = []
     for path in model["files"]:
         symbols = symbols_by_path.get(path, [])
         line_count = model["line_counts"].get(path, 0)
-        lines.append(f"@module {quote(str(path))} lines={line_count} symbols={len(symbols)}")
-        for symbol in symbols:
-            lines.extend(render_symbol(symbol))
-    hidden = max(0, len(model["symbols"]) - max_symbols)
+        file_id = file_ids[path]
+        lines.append(f"@file id={file_id} path={quote(str(path))} lines={line_count} symbols={len(symbols)}")
+        for index, symbol in enumerate(symbols, start=1):
+            lines.extend(render_symbol(symbol, file_id, index))
+    hidden = max(0, len(model["symbols"]) - len(visible_symbols))
     if hidden:
         lines.append(f"@truncated hidden_symbols={hidden}")
     return lines
 
 
-def render_symbol(symbol: SymbolModel) -> list[str]:
+def render_symbol(symbol: SymbolModel, file_id: str, index: int) -> list[str]:
     pressure = ",".join(f"{finding.code}:{finding.severity}" for finding in symbol.findings)
+    symbol_id = f"{file_id}.S{index:03d}"
+    pressures = symbol_pressures(symbol)
+    metrics = f"{{span:{symbol.span},branches:{symbol.branches},statements:{symbol.statements}}}"
     parts = [
-        f"  @symbol {symbol.kind} {quote(symbol.name)} line={symbol.line} "
-        f"span={symbol.span} role={quote(symbol.role)} owns={quote(symbol.owns)}"
+        f"@sym id={symbol_id} file={file_id} kind={atom(symbol.kind)} name={quote(symbol.name)} "
+        f"loc={symbol.line}..{symbol.end_line} role={atom(symbol.role)} owns={atom(symbol.owns)} metrics={metrics}"
     ]
     if symbol.concepts:
-        parts.append(f"concepts={quote(','.join(symbol.concepts))}")
+        parts.append(f"concepts={quoted_list(symbol.concepts)}")
     if symbol.calls:
-        parts.append(f"calls={quote(','.join(symbol.calls))}")
-    if symbol.branches:
-        parts.append(f"branches={symbol.branches}")
+        parts.append(f"calls={quoted_list(symbol.calls)}")
+    if pressures:
+        parts.append(f"pressure={atom_list(pressures)}")
     if pressure:
-        parts.append(f"pressure={quote(pressure)}")
+        parts.append(f"scanner={quote(pressure)}")
     hint = symbol_refactor_hint(symbol)
     if hint is not None:
-        smells = ", ".join(hint["guide_smells"])
-        moves = "; ".join(hint["candidate_moves"][:3])
-        guide = f"pressure={hint['pressure']} smells={smells} moves={moves}"
-        parts.append(f"guide={quote(guide)}")
+        parts.append(f"guide_pressure={atom(str(hint['pressure']))}")
+        parts.append(f"guide_moves={atom_list(move_atoms(hint['candidate_moves'][:3]))}")
+        parts.append(f"guard={quote(str(hint['guardrail']))}")
     return [" ".join(parts)]
+
+
+def symbol_pressures(symbol: SymbolModel) -> list[str]:
+    pressures: list[str] = []
+    if symbol.owns == "delegation-only" or symbol.role == "thin-boundary":
+        pressures.append("unowned-forwarder")
+    if symbol.role == "branch-hub" or symbol.branches >= 8:
+        pressures.append("branch-hub")
+    if symbol.role == "silent-boundary" or symbol.owns == "implicit-failure-policy":
+        pressures.append("silent-boundary")
+    if symbol.role in {"generic-container", "generic-symbol"} or symbol.owns in {
+        "unclear-boundary",
+        "unclear-concept",
+        "unnamed-concept",
+    }:
+        pressures.append("generic-boundary")
+    return pressures
 
 
 def symbol_refactor_hint(symbol: SymbolModel) -> dict[str, Any] | None:
@@ -867,50 +892,50 @@ def symbol_refactor_hint(symbol: SymbolModel) -> dict[str, Any] | None:
     return None
 
 
-def render_friction(friction: dict[str, list[dict[str, Any]]]) -> list[str]:
-    lines = ["@friction"]
+def render_pressure(friction: dict[str, list[dict[str, Any]]]) -> list[str]:
+    lines = ["@pressure_map"]
     for item in friction["empty_boundaries"][:12]:
         lines.append(
-            f"  unowned-forwarder name={quote(item['name'])} path={quote(item['path'])}:{item['line']}"
+            f"@pressure kind=unowned-forwarder target={pressure_target_ref(item)} evidence={{line:{item['line']}}}"
         )
     for item in friction["branch_hubs"][:12]:
         lines.append(
-            f"  branch-hub name={quote(item['name'])} branches={item['branches']} path={quote(item['path'])}:{item['line']}"
+            f"@pressure kind=branch-hub target={pressure_target_ref(item)} evidence={{line:{item['line']},branches:{item['branches']}}}"
         )
     for item in friction["silent_boundaries"][:12]:
         lines.append(
-            f"  silent-boundary name={quote(item['name'])} path={quote(item['path'])}:{item['line']}"
+            f"@pressure kind=silent-boundary target={pressure_target_ref(item)} evidence={{line:{item['line']}}}"
         )
     for item in friction["generic_boundaries"][:12]:
         lines.append(
-            f"  generic-boundary name={quote(item['name'])} role={quote(item['role'])} owns={quote(item['owns'])}"
+            f"@pressure kind=generic-boundary target={pressure_target_ref(item)} role={atom(str(item['role']))} owns={atom(str(item['owns']))}"
         )
     for item in friction["repeated_names"][:12]:
-        lines.append(f"  repeated-name name={quote(item['name'])} count={item['count']}")
+        lines.append(f"@pressure kind=repeated-operation target={quote(str(item['name']))} evidence={{count:{item['count']}}}")
     for item in friction["repeated_concepts"][:12]:
-        lines.append(f"  repeated-concept concept={quote(item['concept'])} count={item['count']}")
+        lines.append(f"@pressure kind=spread-concept target={quote(str(item['concept']))} evidence={{count:{item['count']}}}")
     for item in friction["module_friction"][:12]:
         lines.append(
-            f"  module-friction code={quote(item['code'])} severity={quote(item['severity'])} path={quote(item['path'])}:{item['line']}"
+            f"@pressure kind=module-friction target={quote('file://' + str(item['path']))} code={atom(str(item['code']))} severity={atom(str(item['severity']))} evidence={{line:{item['line']}}}"
         )
     if len(lines) == 1:
-        lines.append("  none")
+        lines.append("@pressure none=true")
     return lines
 
 
 def render_refactor_moves(moves: list[dict[str, Any]]) -> list[str]:
-    lines = ["@refactor_moves"]
+    lines = ["@move_rules"]
     if not moves:
-        lines.append("  none")
+        lines.append("@move_rule none=true")
         return lines
     for move in moves:
         lines.append(
-            f"  pressure={quote(str(move['pressure']))} count={move['count']} "
-            f"friction={quote(str(move['friction']))} "
-            f"guide_smells={quote(', '.join(move['guide_smells']))} "
-            f"candidate_moves={quote('; '.join(move['candidate_moves']))} "
-            f"guardrail={quote(str(move['guardrail']))} "
-            f"sources={quote(', '.join(move['sources']))}"
+            f"@move_rule pressure={atom(str(move['pressure']))} count={move['count']} "
+            f"friction={atom(str(move['friction']))} "
+            f"smells={atom_list(move_atoms(move['guide_smells']))} "
+            f"moves={atom_list(move_atoms(move['candidate_moves']))} "
+            f"guard={quote(str(move['guardrail']))} "
+            f"sources={atom_list(move_atoms(move['sources']))}"
         )
     return lines
 
@@ -918,21 +943,52 @@ def render_refactor_moves(moves: list[dict[str, Any]]) -> list[str]:
 def render_questions() -> list[str]:
     return [
         "@remodel_passes",
-        '  pass=1 source="code+tests" goal="model current ownership and behavior"',
-        '  pass=2 source="human-feedback" goal="treat explicit maintainer feedback as evidence"',
-        '  pass=3 source="static-leads" goal="use analyzer output only as weak supporting leads"',
-        '  pass=4 source="after-rewrite" goal="prove pressure was removed without losing behavior"',
-        "@remodel_questions",
-        '  - "Which guide smell is the closest analogy, and where does the local code disagree with that analogy?"',
-        '  - "Which symbols own only delegation, and can the caller or callee own that directly?"',
-        '  - "Which abstractions earn their place by naming a phase, boundary, invariant, or domain concept?"',
-        '  - "Which generic names are hiding missing domain concepts, and which are contractual vocabulary?"',
-        '  - "Which branch hubs are additive accretion, and which are really a table, parser, state model, or separate domain paths?"',
-        '  - "Which repeated concepts need an owner, and which are healthy locality?"',
-        '  - "Which failure policies are implicit defaults instead of caller-visible behavior?"',
-        '  - "Where should code be moved so the next requirement changes one owner instead of another branch or wrapper?"',
-        '  - "What behavior proof is needed before rewriting the structure?"',
+        '@pass n=1 source="code+tests" output=ownership-map',
+        '@pass n=2 source="human-feedback" output=constraint-delta',
+        '@pass n=3 source="static-leads" output=weak-pressure-check',
+        '@pass n=4 source="after-rewrite" output=pressure-diff proof=[tests,types,trace]',
+        "@query_set",
+        '@query id=Q001 ask="Which guide smell is the closest analogy, and where does the local code disagree with that analogy?"',
+        '@query id=Q002 ask="Which symbols own only delegation, and can the caller or callee own that directly?"',
+        '@query id=Q003 ask="Which abstractions earn their place by naming a phase, boundary, invariant, or domain concept?"',
+        '@query id=Q004 ask="Which generic names are hiding missing domain concepts, and which are contractual vocabulary?"',
+        '@query id=Q005 ask="Which branch hubs are additive accretion, and which are really a table, parser, state model, or separate domain paths?"',
+        '@query id=Q006 ask="Which repeated concepts need an owner, and which are healthy locality?"',
+        '@query id=Q007 ask="Which failure policies are implicit defaults instead of caller-visible behavior?"',
+        '@query id=Q008 ask="Where should code be moved so the next requirement changes one owner instead of another branch or wrapper?"',
+        '@query id=Q009 ask="What behavior proof is needed before rewriting the structure?"',
     ]
+
+
+def file_id_map(files: list[Path]) -> dict[Path, str]:
+    return {path: f"F{index:03d}" for index, path in enumerate(files, start=1)}
+
+
+def pressure_target_ref(item: dict[str, Any]) -> str:
+    return quote(f"symbol://{item['path']}:{item['line']}#{item['name']}")
+
+
+def atom(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "-", value.strip())
+    cleaned = cleaned.strip("-")
+    return cleaned or "unknown"
+
+
+def atom_list(values: Any) -> str:
+    return "[" + ",".join(atom(str(value)) for value in values if str(value)) + "]"
+
+
+def move_atoms(values: Any) -> list[str]:
+    return [pascal_atom(str(value)) for value in values]
+
+
+def pascal_atom(value: str) -> str:
+    parts = re.findall(r"[A-Za-z0-9]+", value)
+    return "".join(part[:1].upper() + part[1:] for part in parts) or "Unknown"
+
+
+def quoted_list(values: Any) -> str:
+    return "[" + ",".join(quote(str(value)) for value in values if str(value)) + "]"
 
 
 def quote(value: str) -> str:

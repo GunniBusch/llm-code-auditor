@@ -8,9 +8,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PLUGIN_ROOT = ROOT.parents[1]
 SKILL = ROOT / "SKILL.md"
 FRAMEWORK = ROOT / "references/remodel-first-framework.md"
 MARKUP = ROOT / "references/code-remodel-markup.md"
+EASY_ENTRY = ROOT / "references/easy-entry-prompts.md"
+PLUGIN = PLUGIN_ROOT / ".codex-plugin/plugin.json"
 BENCHMARK_CASES = ROOT / "benchmarks/cases"
 
 
@@ -20,7 +23,9 @@ def test_skill_leads_with_remodel_first_protocol() -> None:
     scanner_index = text.index("Run the heuristic scanner only")
     assert protocol_index < scanner_index
     assert "The bundled scripts are support tools, not the core workflow." in text
+    assert "references/easy-entry-prompts.md" in text
     assert "references/remodel-first-framework.md" in text
+    assert "strict CMML" in text
 
 
 def test_framework_defines_manual_remodel_contract() -> None:
@@ -32,24 +37,32 @@ def test_framework_defines_manual_remodel_contract() -> None:
         "## Manual Remodel Contract",
         "`@context`",
         "`@feedback`",
-        "`@module`",
+        "`@file`",
+        "`@sym`",
         "`@flow`",
         "`@decision`",
-        "`@rewrite_pressure`",
-        "`@refactor_moves`",
-        "`@after_remodel`",
-        "`@remodel_passes`",
+        "`@pressure`",
+        "`@move_rule`",
+        "`@after`",
+        "`@pass`",
         "Good Structure Signals",
         "Bad Structure Signals",
+        "vague prose paragraphs",
     ):
         assert required in text
 
 
 def test_markup_reference_includes_after_remodel_and_public_code_guardrail() -> None:
     text = MARKUP.read_text(encoding="utf-8")
-    assert "@after_remodel" in text
+    assert "@remodel version=4 dialect=cmml strict=true" in text
+    assert "Strict CMML Rules" in text
+    assert "@file" in text
+    assert "@sym" in text
+    assert "@pressure" in text
+    assert "@move_rule" in text
+    assert "@after" in text
     assert "@feedback" in text
-    assert "@remodel_passes" in text
+    assert "@pass" in text
     assert "What The Syntax Should Reveal" in text
     assert "secondary leads, not authority" in text
     assert "Do not copy source snippets" in text
@@ -67,6 +80,23 @@ def test_benchmark_cases_gate_remodel_markup_terms() -> None:
     assert not missing, f"cases missing expected_remodel_markup: {missing}"
 
 
+def test_easy_entry_prompt_and_plugin_default_trigger_remodel_first() -> None:
+    text = EASY_ENTRY.read_text(encoding="utf-8")
+    for required in (
+        "Run a remodel-first code quality pass",
+        "strict CMML",
+        "static findings as secondary",
+        "behavior-preserving",
+        "proof",
+    ):
+        assert required in text
+
+    plugin = json.loads(PLUGIN.read_text(encoding="utf-8"))
+    prompts = plugin["interface"]["defaultPrompt"]
+    assert any("strict CMML" in prompt for prompt in prompts)
+    assert any("static findings as secondary" in prompt for prompt in prompts)
+
+
 def main() -> int:
     test_skill_leads_with_remodel_first_protocol()
     print("ok test_skill_leads_with_remodel_first_protocol")
@@ -76,6 +106,8 @@ def main() -> int:
     print("ok test_markup_reference_includes_after_remodel_and_public_code_guardrail")
     test_benchmark_cases_gate_remodel_markup_terms()
     print("ok test_benchmark_cases_gate_remodel_markup_terms")
+    test_easy_entry_prompt_and_plugin_default_trigger_remodel_first()
+    print("ok test_easy_entry_prompt_and_plugin_default_trigger_remodel_first")
     return 0
 
 

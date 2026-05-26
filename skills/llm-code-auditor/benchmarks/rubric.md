@@ -11,9 +11,9 @@ The automated runner reports:
 
 - Expected smell coverage: bad fixture triggers the expected scanner findings.
 - Expected remodel friction: bad fixture triggers the intended structural model pressure.
-- Expected remodel markup: bad fixture renders the expected remodel syntax, so
-  the model itself exposes bad placement, branch growth, unowned indirection, or
-  silent failure.
+- Expected remodel markup: bad fixture renders the expected strict CMML syntax,
+  so the model itself exposes bad placement, branch growth, unowned indirection,
+  or silent failure through typed facts rather than vague prose.
 - Expected lens pressure: bad fixture maps to the intended high-level quality frame.
 - Reference implementation gate: gold refactor passes behavior tests and scanner thresholds.
 - Candidate implementation gate: optional agent output passes the same tests and thresholds.

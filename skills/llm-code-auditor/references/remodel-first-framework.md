@@ -1,9 +1,11 @@
 # Remodel-First Agent Framework
 
 Use this framework when code quality is the actual task, not just one local
-warning. The LLM is the modeling tool: it should redraw the codebase in compact
-Code Remodel Markup, use that alternate view to see structural pressure, then
-rewrite source only after ownership and proof are clear.
+warning. The LLM is the modeling tool: it should redraw the codebase in strict
+compact Code Remodel Markup, use that alternate view to see structural pressure,
+then rewrite source only after ownership and proof are clear. The markup should
+read like a small meta-program: typed facts, ids, enums, metrics, pressure,
+moves, guards, and proof, with free prose only inside quoted fields.
 
 The Python tools are support machinery. They can seed a model, catch benchmark
 regressions, or provide concrete evidence, but they are not the product and they
@@ -58,7 +60,8 @@ for a reason.
 3. **Research the specific idiom.** Check current primary sources for the
    language/framework/subtopic when local precedent is weak or high-stakes.
 4. **Write a compact manual remodel.** Model only the files, flows, decisions, and
-   symbols that explain the shape problem. Do not list every line.
+   symbols that explain the shape problem. Use strict CMML fact lines:
+   `@file`, `@sym`, `@pressure`, `@move_rule`, `@pass`, and `@after`. Do not list every line.
 5. **Run multiple modeling passes.** First model source and tests, then reconcile
    explicit human feedback if present, then use static analyzer output only as a
    weak check for missed pressure.
@@ -80,19 +83,24 @@ for a reason.
 
 A useful manual remodel is compact and opinionated. It should contain:
 
+- `@remodel version=4 dialect=cmml strict=true`.
+- `@schema` with controlled pressure, move, and proof vocabularies.
 - `@context` with behavior, invariants, constraints, and proof surface.
 - `@feedback` when a maintainer gave explicit critique, constraints, examples,
   or preferences that should influence the rewrite.
-- `@module` entries with current ownership, intended ownership, misplaced
+- `@file` entries with current ownership, intended ownership, misplaced
   responsibilities, and additive paths.
+- `@sym` entries with ids, role, ownership, metrics, pressure, calls, concepts,
+  guide moves, guardrails, and proof needs.
 - `@flow` entries for user-visible operations, with the overgrown step named.
 - `@decision` entries for branch hubs, including what the variation is really
   about.
-- `@rewrite_pressure` that separates bad indirection from useful abstraction.
-- `@refactor_moves` with candidate moves, guardrails, and required proof.
-- `@after_remodel` after the rewrite, showing what pressure disappeared and
-  what proof covers the result.
-- `@remodel_passes` showing source/test, human-feedback, static-lead, and
+- `@pressure` entries that separate bad indirection from useful abstraction.
+- `@keep` entries for useful abstractions that should not be blindly inlined.
+- `@move_rule` entries with candidate moves, guardrails, and required proof.
+- `@after` after the rewrite, showing what pressure disappeared and what proof
+  covers the result.
+- `@pass` entries showing source/test, human-feedback, static-lead, and
   after-rewrite passes.
 
 It should not:
@@ -100,6 +108,7 @@ It should not:
 - repeat scanner findings without adding ownership judgment
 - treat analyzer output as more authoritative than code behavior or maintainer
   critique
+- replace structured facts with vague prose paragraphs
 - model perfect program logic
 - copy source code from public projects or docs
 - turn every long function into helpers
@@ -145,13 +154,7 @@ It should not:
 Before calling a cleanup good, write a short after-remodel:
 
 ```text
-@after_remodel
-  behavior: "same observable contract or intentionally changed contract"
-  owners: "one owner per invariant"
-  preserved-boundaries: "real protocol, lifecycle, state, security, or phase boundaries kept"
-  removed-pressure: "branch-hub | unowned-forwarder | silent-boundary | generic-boundary"
-  remaining-pressure: "what is still imperfect and why it is acceptable"
-  proof: "tests/types/manual trace"
+@after behavior=same owners=["one owner per invariant"] kept=["real protocol, lifecycle, state, security, or phase boundary"] removed=[branch-hub,unowned-forwarder,silent-boundary,generic-boundary] remaining=["accepted tradeoff"] proof=[tests,types,trace]
 ```
 
 If the after-remodel is longer than the before-remodel or needs more excuses,

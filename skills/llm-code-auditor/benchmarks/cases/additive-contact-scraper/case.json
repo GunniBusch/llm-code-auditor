@@ -33,9 +33,9 @@
     }
   ],
   "expected_remodel_markup": [
-    "role=\"silent-boundary\"",
-    "pressure=\"branch-hub\"",
-    "pressure=\"silent-boundary\""
+    "role=silent-boundary",
+    "@pressure kind=branch-hub",
+    "@pressure kind=silent-boundary"
   ],
   "reference": {
     "path": "after_good",

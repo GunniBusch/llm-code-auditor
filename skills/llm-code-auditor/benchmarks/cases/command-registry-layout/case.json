@@ -25,9 +25,9 @@
     }
   ],
   "expected_remodel_markup": [
-    "role=\"branch-hub\"",
-    "pressure=\"branch-hub\"",
-    "candidate_moves=\"Extract Function; Decompose Conditional; Replace Conditional with Polymorphism; Replace Function with Command; Split Phase; Substitute Algorithm\""
+    "role=branch-hub",
+    "@pressure kind=branch-hub",
+    "moves=[ExtractFunction,DecomposeConditional,ReplaceConditionalWithPolymorphism,ReplaceFunctionWithCommand,SplitPhase,SubstituteAlgorithm]"
   ],
   "reference": {
     "path": "after_good",

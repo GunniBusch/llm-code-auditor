@@ -9,6 +9,21 @@ Use this umbrella skill to turn "plausible generated code" into code a sharp mai
 
 The goal is not to abolish abstraction or compress code at any cost. The goal is code that is compact enough, readable, efficient, locally idiomatic, and fit for the task. Good cleanup preserves useful boundaries and removes machinery that does not earn its keep.
 
+## Easy Entry
+
+When the user asks to "run the code auditor", "clean up AI code", "de-AI this",
+"make this human-quality", or uses one of the prompts in
+`references/easy-entry-prompts.md`, enter remodel-first mode:
+
+```text
+Run a remodel-first code quality pass: model behavior, ownership, and maintainer
+feedback first in strict CMML, treat static findings as secondary, then make
+compact behavior-preserving improvements with proof.
+```
+
+The easy prompt is only an entry point. Once the work is non-trivial, write the
+strict Code Remodel Markup model before deciding edits.
+
 ## Remodel-First Protocol
 
 For substantial cleanup, do not start by hunting individual static findings. Use
@@ -18,7 +33,7 @@ the LLM as the modeling tool:
 2. State the behavior, invariants, side effects, and compatibility constraints that must remain true. If you cannot say what the code is for, do not judge its shape yet.
 3. Search for the existing repo concept that should own the work: parser, schema, route, command registry, state model, adapter, lifecycle hook, domain module, or tested helper.
 4. When idioms, performance expectations, security posture, or framework patterns matter, look up current best practices for the specific language, framework, field, subtopic, and pattern. Prefer primary sources: official docs, language references, framework guides, standards, release notes, and well-established project docs. Use those sources to calibrate judgment; do not copy generic advice or impose patterns that do not fit the local code.
-5. Write a compact manual remodel when structure is unclear, duplicated, over-layered, squeezed into the wrong file, or hard to reason about. Use `references/remodel-first-framework.md` and `references/code-remodel-markup.md` for the syntax. The model should show current ownership, intended ownership, misplaced responsibilities, additive paths, useful abstractions, candidate moves, guardrails, and proof needs.
+5. Write a compact manual remodel when structure is unclear, duplicated, over-layered, squeezed into the wrong file, or hard to reason about. Use `references/remodel-first-framework.md` and `references/code-remodel-markup.md` for the syntax. Prefer strict CMML fact lines such as `@file`, `@sym`, `@pressure`, `@move_rule`, `@pass`, and `@after`. The model should show current ownership, intended ownership, misplaced responsibilities, additive paths, useful abstractions, candidate moves, guardrails, and proof needs through typed fields rather than loose paragraphs.
 6. Run more than one modeling pass when the code is messy or the user gives critique. First model source and tests, then model explicit human feedback as evidence, then use static findings only as weak supporting leads.
 7. Read the remodel before choosing edits. Too many `unowned-forwarder`, `branch-hub`, `silent-boundary`, `generic-boundary`, `spread-concept`, or `module-friction` entries should make the bad shape visible without needing an exact detector verdict.
 8. Rewrite only after the ownership move is clear. Prefer moving behavior to the owner, splitting real phases, converting additive branches into a table/state/parser where appropriate, deleting unearned wrappers, and preserving boundaries that earn their place.
@@ -52,6 +67,7 @@ python3 scripts/llm_code_smell_scan.py <path>
 The scanner prints severity, confidence, and evidence. Treat `HIGH` as an actionable lead, `MEDIUM` as likely worth inspection, and `LOW` as a weak review signal that may be legitimate human code. Use `--min-severity medium` to hide weak leads.
 
 Read the reference that matches the work:
+   - `references/easy-entry-prompts.md` for copy-paste prompts that trigger remodel-first mode.
    - `references/remodel-first-framework.md` for the agent workflow that treats manual remodel markup as the main interface.
    - `references/code-remodel-markup.md` for the remodel language and how to use it before rewriting.
    - `references/refactoring-guide-map.md` for mapping remodel pressure to Fowler/Refactoring Guru move families.

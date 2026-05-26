@@ -1,6 +1,6 @@
 {
   "name": "llm-code-auditor",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "Refactor AI-shaped code into compact, readable, efficient, task-fit code with senior maintainer judgment.",
   "author": {
     "name": "Leon Adomaitis",
@@ -33,6 +33,7 @@
     "privacyPolicyURL": "https://github.com/GunniBusch/llm-code-auditor",
     "termsOfServiceURL": "https://github.com/GunniBusch/llm-code-auditor",
     "defaultPrompt": [
+      "Run a remodel-first code quality pass: model behavior, ownership, and maintainer feedback first in strict CMML, treat static findings as secondary, then make compact behavior-preserving improvements with proof.",
       "Refactor this AI-shaped code into clean, task-fit human-quality code.",
       "Remodel this codebase structure, then fix the real quality problems.",
       "Review these tests for brittle LLM patterns and reward hacking."

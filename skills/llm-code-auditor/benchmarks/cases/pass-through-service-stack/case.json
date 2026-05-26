@@ -37,9 +37,9 @@
     }
   ],
   "expected_remodel_markup": [
-    "role=\"thin-boundary\"",
-    "pressure=\"unowned-forwarder\"",
-    "pressure=\"repeated-operation-name\""
+    "role=thin-boundary",
+    "pressure=[unowned-forwarder]",
+    "pressure=repeated-operation-name"
   ],
   "reference": {
     "path": "after_good",
