@@ -9,28 +9,40 @@ Use this umbrella skill to turn "plausible generated code" into code a sharp mai
 
 The goal is not to abolish abstraction or compress code at any cost. The goal is code that is compact enough, readable, efficient, locally idiomatic, and fit for the task. Good cleanup preserves useful boundaries and removes machinery that does not earn its keep.
 
-## Quick Start
+## Remodel-First Protocol
 
-1. Inspect the changed files and surrounding call sites before editing.
-2. State the behavior and invariants that must remain true. If you cannot say what the code is for, do not judge its shape yet.
-3. When idioms, performance expectations, security posture, or framework patterns matter, look up current best practices for the specific language, framework, field, subtopic, and pattern. Prefer primary sources: official docs, language references, framework guides, standards, release notes, and well-established project docs. Use those sources to calibrate judgment; do not copy generic advice or impose patterns that do not fit the local code.
-4. Remodel the written code when structure is unclear, duplicated, over-layered, squeezed into the wrong file, or hard to reason about. Prefer writing a short manual remodel after reading the code; use the script as a seed or sanity check:
+For substantial cleanup, do not start by hunting individual static findings. Use
+the LLM as the modeling tool:
+
+1. Inspect the changed files, surrounding call sites, tests, and nearby repo patterns before editing.
+2. State the behavior, invariants, side effects, and compatibility constraints that must remain true. If you cannot say what the code is for, do not judge its shape yet.
+3. Search for the existing repo concept that should own the work: parser, schema, route, command registry, state model, adapter, lifecycle hook, domain module, or tested helper.
+4. When idioms, performance expectations, security posture, or framework patterns matter, look up current best practices for the specific language, framework, field, subtopic, and pattern. Prefer primary sources: official docs, language references, framework guides, standards, release notes, and well-established project docs. Use those sources to calibrate judgment; do not copy generic advice or impose patterns that do not fit the local code.
+5. Write a compact manual remodel when structure is unclear, duplicated, over-layered, squeezed into the wrong file, or hard to reason about. Use `references/remodel-first-framework.md` and `references/code-remodel-markup.md` for the syntax. The model should show current ownership, intended ownership, misplaced responsibilities, additive paths, useful abstractions, candidate moves, guardrails, and proof needs.
+6. Read the remodel before choosing edits. Too many `unowned-forwarder`, `branch-hub`, `silent-boundary`, `generic-boundary`, `spread-concept`, or `module-friction` entries should make the bad shape visible without needing an exact detector verdict.
+7. Rewrite only after the ownership move is clear. Prefer moving behavior to the owner, splitting real phases, converting additive branches into a table/state/parser where appropriate, deleting unearned wrappers, and preserving boundaries that earn their place.
+8. Verify with behavior tests, types, runtime checks, or a precise manual trace. For non-trivial cleanups, write a short after-remodel: what pressure was removed, what boundary was preserved, and what proof covers the rewrite.
+
+The bundled scripts are support tools, not the core workflow.
+
+Use the remodel script as a seed or sanity check when a local tree is available:
 
 ```bash
 python3 scripts/code_remodel.py <path>
 ```
 
-The remodel is a post-code markup, not another source language and not a detector verdict. It redraws modules, symbols, ownership, calls, repeated concepts, unowned forwarders, branch hubs, implicit failure policy, wrong placement, guide-backed refactor moves, and additive drift so the agent can see the codebase shape before rewriting it. The act of authoring the remodel is part of the tool: it forces the agent to see responsibilities from another view instead of piling on more code. Read `references/code-remodel-markup.md` when using this output deeply.
+The generated remodel is not truth. Rewrite it manually when local ownership,
+placement, or domain pressure is clearer than the heuristic output.
 
-5. Run the quality lens when there is a local tree or file set and you need direction:
+Run the quality lens when you need a coarse direction check:
 
 ```bash
 python3 scripts/quality_lens.py <path>
 ```
 
-The lens gives a fault-tolerant code-quality view across domain fit, economy, invariant ownership, failure semantics, change shape, and proof readiness. Use its primary frame to decide how to inspect the code. It is a model for thinking, not an edit checklist.
+The lens gives a fault-tolerant code-quality view across domain fit, economy, invariant ownership, failure semantics, change shape, and proof readiness. Use its primary frame to inspect the code, not as an edit checklist.
 
-6. Run the heuristic scanner when you need concrete leads beneath the model:
+Run the heuristic scanner only when you need concrete leads beneath the model or a regression check:
 
 ```bash
 python3 scripts/llm_code_smell_scan.py <path>
@@ -38,16 +50,14 @@ python3 scripts/llm_code_smell_scan.py <path>
 
 The scanner prints severity, confidence, and evidence. Treat `HIGH` as an actionable lead, `MEDIUM` as likely worth inspection, and `LOW` as a weak review signal that may be legitimate human code. Use `--min-severity medium` to hide weak leads.
 
-7. Read the reference that matches the work:
+Read the reference that matches the work:
+   - `references/remodel-first-framework.md` for the agent workflow that treats manual remodel markup as the main interface.
    - `references/code-remodel-markup.md` for the remodel language and how to use it before rewriting.
    - `references/refactoring-guide-map.md` for mapping remodel pressure to Fowler/Refactoring Guru move families.
    - `references/senior-refactor-playbook.md` for deep cleanup, adaptive reuse, and "make it human-quality" requests.
    - `references/pattern-catalog.md` for generated-code smell families and fixes.
    - `references/llm-failure-taxonomy.md` for correctness risks that clean-looking generated code often hides.
    - `references/human-code-quality.md` for code-review standards and stopping criteria.
-8. Fix only issues that are behavior-preserving or covered by tests. Add or adapt tests before non-trivial rewrites.
-9. Prefer deleting, inlining, renaming, moving code near its use, and strengthening boundary invariants over adding new frameworks.
-10. Verify with the repo's formatter, type checker, linter, and tests.
 
 When tuning this skill, remodel, lens, or scanner behavior, run `scripts/quality_benchmark.py benchmarks`. To compare agent outputs, place candidate refactors in one directory per benchmark case and run `scripts/quality_benchmark.py benchmarks --candidate-root <path>`.
 

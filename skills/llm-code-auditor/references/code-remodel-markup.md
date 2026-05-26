@@ -6,7 +6,8 @@ job is to redraw already-written code so structural quality becomes easier to
 reason about.
 
 The most important tool is the model the agent writes after reading the code.
-The bundled script is a seed and sanity check:
+Use `remodel-first-framework.md` for the full workflow. The bundled script is a
+seed and sanity check:
 
 ```bash
 python3 scripts/code_remodel.py <path>
@@ -90,11 +91,43 @@ When the structure is subtle, write a compact manual model before editing:
   candidate: "Extract Function | Inline Function | Move Function | Split Phase | Introduce Parameter Object"
   guardrail: "why this move might be wrong here"
   proof: "test/type/manual trace required before edit"
+
+@after_remodel
+  behavior: "same observable contract or intentionally changed contract"
+  owners: "one owner per invariant after the rewrite"
+  preserved-boundaries: "useful abstraction kept because it protects a real boundary"
+  removed-pressure: "branch-hub | unowned-forwarder | silent-boundary | generic-boundary"
+  remaining-pressure: "accepted tradeoff and why it is not worth more change now"
+  proof: "tests/types/manual trace"
 ```
 
 Focus the remodel on structure, not perfect logic. It should help answer "where
 should this responsibility live?" and "what must be reconnected before adding
 more code?"
+
+## What The Syntax Should Reveal
+
+The syntax should make the structural problem visible without requiring a
+separate detector verdict:
+
+- Many `@symbol` entries with `owns="delegation-only"` usually means indirection
+  is standing in for ownership.
+- One `@decision` or `@symbol role="branch-hub"` with many branches means the
+  next change will probably add another branch unless variation gets a better
+  shape.
+- A `@module` with several unrelated `misplaced` entries means the file is a
+  container, not an owner.
+- A `@rewrite_pressure useful-abstractions` entry should name the abstractions to
+  keep so cleanup does not become blind inlining.
+- `@refactor_moves` must name a guardrail. A move without a reason it might be
+  wrong is too eager.
+- `@after_remodel` should be shorter and clearer than the before model. If it
+  needs more caveats, the code may have become worse.
+
+When using public code or framework docs for calibration, copy only the
+structural lesson: phase boundaries, dispatch shape, ownership placement,
+failure contracts, or module layout. Do not copy source snippets, domain names,
+or identifiers into benchmark fixtures.
 
 ## Friction Vocabulary
 
@@ -136,11 +169,11 @@ more code?"
 
 ## Refactor Use
 
-1. Read `@lens` to choose the first inspection frame.
-2. Read `@refactor_guide` and `@refactor_moves` to choose a move family, then
+1. Write or adjust a manual `@context`/`@module`/`@symbol`/`@flow` remodel before
+   editing when structure is the problem.
+2. Read `@lens` to choose the first inspection frame.
+3. Read `@refactor_guide` and `@refactor_moves` to choose a move family, then
    state the guardrail.
-3. Write or adjust a manual `@context`/`@module`/`@symbol`/`@flow` remodel when the heuristic
-   output misses ownership, placement, or additive drift.
 4. Read `@friction` to find structural pressure without jumping to exact edits.
 5. For each relevant `@symbol`, ask what it owns today. If the answer is only
    delegation, naming, or future flexibility, collapse or move it.

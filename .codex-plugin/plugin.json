@@ -1,6 +1,6 @@
 {
   "name": "llm-code-auditor",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Refactor AI-shaped code into compact, readable, efficient, task-fit code with senior maintainer judgment.",
   "author": {
     "name": "Leon Adomaitis",
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "LLM Code Auditor",
     "shortDescription": "Refactor AI-shaped code well",
-    "longDescription": "Audit and improve generated or agent-written code with an umbrella senior-refactor workflow, guide-backed code remodel markup, and targeted skills for abstraction judgment, boundary invariants, readable domain code, generated tests, dependency/API hallucinations, and performance simplicity. The plugin focuses on code that is compact enough, readable, efficient, locally idiomatic, testable, and fit for the actual task while preserving real boundaries instead of blindly deleting abstractions.",
+    "longDescription": "Audit and improve generated or agent-written code with a remodel-first agent framework, guide-backed Code Remodel Markup, and targeted skills for abstraction judgment, boundary invariants, readable domain code, generated tests, dependency/API hallucinations, and performance simplicity. The plugin focuses on code that is compact enough, readable, efficient, locally idiomatic, testable, and fit for the actual task while preserving real boundaries instead of blindly deleting abstractions. Static heuristics are supporting evidence and regression checks, not the main cleanup interface.",
     "developerName": "Leon Adomaitis",
     "category": "Coding",
     "capabilities": [
@@ -34,7 +34,7 @@
     "termsOfServiceURL": "https://github.com/GunniBusch/llm-code-auditor",
     "defaultPrompt": [
       "Refactor this AI-shaped code into clean, task-fit human-quality code.",
-      "Audit this code for LLM-generated patterns and fix the real ones.",
+      "Remodel this codebase structure, then fix the real quality problems.",
       "Review these tests for brittle LLM patterns and reward hacking."
     ],
     "brandColor": "#111827",

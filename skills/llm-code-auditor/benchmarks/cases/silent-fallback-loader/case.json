@@ -24,6 +24,11 @@
       "min_count": 1
     }
   ],
+  "expected_remodel_markup": [
+    "role=\"silent-boundary\"",
+    "pressure=\"silent-boundary\"",
+    "guide_smells: Error Code, Hidden Failure Policy"
+  ],
   "reference": {
     "path": "after_good",
     "tests": "tests",

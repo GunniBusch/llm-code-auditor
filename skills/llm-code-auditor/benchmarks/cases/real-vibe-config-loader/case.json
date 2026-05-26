@@ -52,6 +52,12 @@
       "min_count": 1
     }
   ],
+  "expected_remodel_markup": [
+    "pressure=\"unowned-forwarder\"",
+    "pressure=\"branch-hub\"",
+    "pressure=\"silent-boundary\"",
+    "pressure=\"repeated-operation-name\""
+  ],
   "reference": {
     "path": "after_good",
     "tests": "tests",

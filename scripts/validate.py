@@ -32,6 +32,7 @@ def main() -> int:
                 str(AUDITOR / "scripts/test_code_remodel.py"),
                 str(AUDITOR / "scripts/test_quality_lens.py"),
                 str(AUDITOR / "scripts/test_quality_benchmark.py"),
+                str(AUDITOR / "scripts/test_remodel_first_framework.py"),
                 str(ROOT / "scripts/validate.py"),
             ],
         ),
@@ -39,6 +40,7 @@ def main() -> int:
         ("code remodel tests", [PYTHON, str(AUDITOR / "scripts/test_code_remodel.py")]),
         ("quality lens tests", [PYTHON, str(AUDITOR / "scripts/test_quality_lens.py")]),
         ("benchmark tests", [PYTHON, str(AUDITOR / "scripts/test_quality_benchmark.py")]),
+        ("remodel framework tests", [PYTHON, str(AUDITOR / "scripts/test_remodel_first_framework.py")]),
         ("quality benchmark", [PYTHON, str(AUDITOR / "scripts/quality_benchmark.py"), str(AUDITOR / "benchmarks")]),
     ]
 

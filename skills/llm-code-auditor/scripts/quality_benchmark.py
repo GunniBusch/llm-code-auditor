@@ -31,6 +31,7 @@ class CaseResult:
     name: str
     expected_findings_ok: bool
     expected_remodel_ok: bool
+    expected_markup_ok: bool
     expected_lenses_ok: bool
     reference_ok: bool
     candidate_ok: bool | None
@@ -64,6 +65,7 @@ def main() -> int:
     if not all(
         result.expected_findings_ok
         and result.expected_remodel_ok
+        and result.expected_markup_ok
         and result.expected_lenses_ok
         and result.reference_ok
         for result in results
@@ -82,10 +84,16 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
 
     before_findings = run_scanner(case_dir / case["before"], "low")
     before_remodel = run_remodel(case_dir / case["before"])
+    before_markup = run_remodel_markup(case_dir / case["before"])
     expected_findings_ok = expected_findings_present(case["expected_findings"], before_findings, notes)
     expected_remodel_ok = expected_remodel_present(
         case.get("expected_remodel_friction", []),
         before_remodel,
+        notes,
+    )
+    expected_markup_ok = expected_markup_present(
+        case.get("expected_remodel_markup", []),
+        before_markup,
         notes,
     )
     expected_lenses_ok = expected_lenses_present(
@@ -110,10 +118,11 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
     score = (
         int(expected_findings_ok)
         + int(expected_remodel_ok)
+        + int(expected_markup_ok)
         + int(expected_lenses_ok)
         + int(reference_ok)
     )
-    max_score = 4
+    max_score = 5
     if candidate_ok is not None:
         score += int(candidate_ok)
         max_score += 1
@@ -122,6 +131,7 @@ def run_case(case_file: Path, candidate_root: Path | None) -> CaseResult:
         name=case["id"],
         expected_findings_ok=expected_findings_ok,
         expected_remodel_ok=expected_remodel_ok,
+        expected_markup_ok=expected_markup_ok,
         expected_lenses_ok=expected_lenses_ok,
         reference_ok=reference_ok,
         candidate_ok=candidate_ok,
@@ -157,6 +167,17 @@ def run_remodel(path: Path) -> dict[str, object]:
     if not isinstance(model, dict):
         raise SystemExit("code remodel output must be an object")
     return model
+
+
+def run_remodel_markup(path: Path) -> str:
+    result = subprocess.run(
+        ["python3", str(REMODEL), str(path)],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return result.stdout
 
 
 def run_quality_lens(path: Path) -> dict[str, object]:
@@ -208,6 +229,19 @@ def expected_remodel_present(
         count = friction.get(kind, 0)
         if count < min_count:
             notes.append(f"remodel friction too low: {kind} {count} < {min_count}")
+            ok = False
+    return ok
+
+
+def expected_markup_present(
+    expected: list[str],
+    markup: str,
+    notes: list[str],
+) -> bool:
+    ok = True
+    for term in expected:
+        if term not in markup:
+            notes.append(f"remodel markup missing: {term}")
             ok = False
     return ok
 
@@ -333,10 +367,12 @@ def print_summary(results: list[CaseResult]) -> None:
     print(f"Score: {score}/{max_score}")
     smell_ok = all(result.expected_findings_ok for result in results)
     remodel_ok = all(result.expected_remodel_ok for result in results)
+    markup_ok = all(result.expected_markup_ok for result in results)
     lens_ok = all(result.expected_lenses_ok for result in results)
     reference_ok = all(result.reference_ok for result in results)
     print(f"Expected smell coverage: {'PASS' if smell_ok else 'FAIL'}")
     print(f"Expected remodel friction: {'PASS' if remodel_ok else 'FAIL'}")
+    print(f"Expected remodel markup: {'PASS' if markup_ok else 'FAIL'}")
     print(f"Expected lens pressure: {'PASS' if lens_ok else 'FAIL'}")
     print(f"Reference implementations: {'PASS' if reference_ok else 'FAIL'}")
 
@@ -350,6 +386,7 @@ def print_summary(results: list[CaseResult]) -> None:
             "PASS"
             if result.expected_findings_ok
             and result.expected_remodel_ok
+            and result.expected_markup_ok
             and result.expected_lenses_ok
             and result.reference_ok
             else "FAIL"
@@ -364,6 +401,7 @@ def result_to_json(result: CaseResult) -> dict[str, object]:
         "name": result.name,
         "expected_findings_ok": result.expected_findings_ok,
         "expected_remodel_ok": result.expected_remodel_ok,
+        "expected_markup_ok": result.expected_markup_ok,
         "expected_lenses_ok": result.expected_lenses_ok,
         "reference_ok": result.reference_ok,
         "candidate_ok": result.candidate_ok,

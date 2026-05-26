@@ -36,6 +36,11 @@
       "min_count": 1
     }
   ],
+  "expected_remodel_markup": [
+    "role=\"thin-boundary\"",
+    "pressure=\"unowned-forwarder\"",
+    "pressure=\"repeated-operation-name\""
+  ],
   "reference": {
     "path": "after_good",
     "tests": "tests",

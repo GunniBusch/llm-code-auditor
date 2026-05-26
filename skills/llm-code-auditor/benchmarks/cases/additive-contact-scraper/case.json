@@ -32,6 +32,11 @@
       "min_count": 1
     }
   ],
+  "expected_remodel_markup": [
+    "role=\"silent-boundary\"",
+    "pressure=\"branch-hub\"",
+    "pressure=\"silent-boundary\""
+  ],
   "reference": {
     "path": "after_good",
     "tests": "tests",
